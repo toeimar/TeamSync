@@ -3,32 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TeamSync - Team Project Management</title>
+    <title>TeamSync - จัดการงานทีมออนไลน์</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest"></script>
     <style>
-        * {
-            -webkit-tap-highlight-color: transparent;
+        @supports (padding: max(0px)) {
+            body {
+                padding-bottom: max(0px, env(safe-area-inset-bottom));
+            }
         }
-        
         .pb-safe {
-            padding-bottom: env(safe-area-inset-bottom);
+            padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
         }
-        
         .line-clamp-2 {
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
-        
-        /* Smooth animations */
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+        .animate-in {
+            animation: fadeInZoom 0.2s ease-out;
         }
-        
-        @keyframes zoomIn {
+        @keyframes fadeInZoom {
             from {
                 opacity: 0;
                 transform: scale(0.95);
@@ -38,94 +34,101 @@
                 transform: scale(1);
             }
         }
-        
-        .animate-in {
-            animation: fadeIn 0.2s ease-in-out;
-        }
-        
-        .zoom-in-95 {
-            animation: zoomIn 0.2s ease-in-out;
-        }
-        
-        .fade-in {
-            animation: fadeIn 0.2s ease-in-out;
-        }
-        
-        /* Scrollbar styling */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: #d1d5db;
-            border-radius: 3px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: #9ca3af;
-        }
     </style>
 </head>
-<body class="bg-slate-50 font-sans text-gray-900">
+<body class="font-sans bg-slate-50">
     <div id="app"></div>
 
     <script>
-        // ============================================
-        // ข้อมูลจำลอง (Mock Data)
-        // ============================================
-        const TEAM_MEMBERS = ['เอก', 'พลอย', 'นัท', 'ส้ม'];
-
-        const INITIAL_TASKS = [
+        // ====== DATA MANAGEMENT ======
+        const STORAGE_KEY = 'teamsync_data';
+        const DEFAULT_TEAM = ['เอก', 'พลอย', 'นัท', 'ส้ม'];
+        const DEFAULT_TASKS = [
             { id: '1', title: 'ออกแบบ UI หน้าเข้าสู่ระบบ', description: 'สร้าง Wireframe และ UI สำหรับหน้า Login บน Mobile โดยเน้นการใช้งานที่ง่ายและสะอาดตา', status: 'done', assignee: 'พลอย', dueDate: '2026-04-20', priority: 'high' },
             { id: '2', title: 'พัฒนาระบบ API ดึงข้อมูลผู้ใช้', description: 'เขียน Node.js API สำหรับหน้าโปรไฟล์ และเชื่อมต่อฐานข้อมูล MongoDB', status: 'in-progress', assignee: 'นัท', dueDate: '2026-04-25', priority: 'high' },
             { id: '3', title: 'เขียนแผนการตลาด Q2', description: 'สรุปงบประมาณและช่องทางการโปรโมทผ่าน Social Media ต่างๆ', status: 'todo', assignee: 'เอก', dueDate: '2026-04-28', priority: 'medium' },
             { id: '4', title: 'ทดสอบระบบ (UAT)', description: 'ให้ผู้ใช้กลุ่มตัวอย่างทดสอบระบบและบันทึก Feedback กลับมาปรับปรุง', status: 'todo', assignee: 'ส้ม', dueDate: '2026-05-02', priority: 'low' },
         ];
 
-        // ============================================
-        // Icon Helper Function
-        // ============================================
-        const createIcon = (name, size = 20, className = '') => {
-            const iconMap = {
-                'layout-dashboard': '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + className + '"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>',
-                'kanban': '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + className + '"><rect x="3" y="3" width="7" height="14"></rect><rect x="14" y="3" width="7" height="11"></rect><rect x="3" y="17" width="18" height="3"></rect></svg>',
-                'calendar': '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + className + '"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><path d="M16 2v4"></path><path d="M8 2v4"></path><path d="M3 10h18"></path></svg>',
-                'bar-chart': '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + className + '"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>',
-                'users': '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + className + '"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
-                'plus': '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + className + '"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
-                'edit': '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + className + '"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>',
-                'trash': '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + className + '"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>',
-                'clock': '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + className + '"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
-                'user': '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + className + '"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>',
-                'check-circle': '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + className + '"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>',
-                'x': '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + className + '"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
-                'alert-circle': '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + className + '"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>',
-                'user-plus': '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + className + '"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>',
-                'align-left': '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="' + className + '"><line x1="17" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="17" y1="18" x2="3" y2="18"></line></svg>',
-            };
-            return iconMap[name] || '';
-        };
+        class AppState {
+            constructor() {
+                this.loadData();
+            }
 
-        // ============================================
-        // App State
-        // ============================================
-        const appState = {
-            teamMembers: [...TEAM_MEMBERS],
-            tasks: [...INITIAL_TASKS],
-            currentView: 'dashboard',
-            isModalOpen: false,
-            editingTask: null,
-            viewingTask: null,
-        };
+            loadData() {
+                try {
+                    const saved = localStorage.getItem(STORAGE_KEY);
+                    if (saved) {
+                        const data = JSON.parse(saved);
+                        this.tasks = data.tasks || DEFAULT_TASKS;
+                        this.teamMembers = data.teamMembers || DEFAULT_TEAM;
+                    } else {
+                        this.tasks = DEFAULT_TASKS;
+                        this.teamMembers = DEFAULT_TEAM;
+                        this.saveData();
+                    }
+                } catch (e) {
+                    console.error('Load error:', e);
+                    this.tasks = DEFAULT_TASKS;
+                    this.teamMembers = DEFAULT_TEAM;
+                }
+            }
 
-        // ============================================
-        // Helper Functions
-        // ============================================
+            saveData() {
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                        tasks: this.tasks,
+                        teamMembers: this.teamMembers
+                    }));
+                } catch (e) {
+                    console.error('Save error:', e);
+                    alert('ไม่สามารถบันทึกข้อมูลได้');
+                }
+            }
+
+            addTask(task) {
+                const newTask = {
+                    ...task,
+                    id: Date.now().toString()
+                };
+                this.tasks.push(newTask);
+                this.saveData();
+                return newTask;
+            }
+
+            updateTask(id, updates) {
+                const index = this.tasks.findIndex(t => t.id === id);
+                if (index !== -1) {
+                    this.tasks[index] = { ...this.tasks[index], ...updates };
+                    this.saveData();
+                }
+            }
+
+            deleteTask(id) {
+                this.tasks = this.tasks.filter(t => t.id !== id);
+                this.saveData();
+            }
+
+            addMember(name) {
+                if (!this.teamMembers.includes(name)) {
+                    this.teamMembers.push(name);
+                    this.saveData();
+                }
+            }
+
+            removeMember(name) {
+                this.teamMembers = this.teamMembers.filter(m => m !== name);
+                this.saveData();
+            }
+        }
+
+        const state = new AppState();
+        let currentView = 'dashboard';
+        let isModalOpen = false;
+        let editingTask = null;
+        let viewingTask = null;
+
+        // ====== HELPER FUNCTIONS ======
         const getPriorityColor = (p) => {
             if (p === 'high') return 'text-red-600 bg-red-100 border-red-200';
             if (p === 'medium') return 'text-orange-600 bg-orange-100 border-orange-200';
@@ -150,81 +153,71 @@
             return 'bg-green-100 text-green-700 border-green-200';
         };
 
-        const formatDate = (dateStr) => {
-            const date = new Date(dateStr + 'T00:00:00');
-            return date.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
-        };
-
-        // ============================================
-        // Action Handlers
-        // ============================================
-        const handleSaveTask = (taskData) => {
-            if (appState.editingTask) {
-                const index = appState.tasks.findIndex(t => t.id === appState.editingTask.id);
-                appState.tasks[index] = { ...taskData, id: appState.editingTask.id };
-            } else {
-                appState.tasks.push({ ...taskData, id: Date.now().toString() });
+        // ====== EVENT HANDLERS ======
+        const handleSaveTask = (formData) => {
+            if (!formData.title) {
+                alert('กรุณาใส่ชื่องาน');
+                return;
             }
-            appState.isModalOpen = false;
-            appState.editingTask = null;
+            if (editingTask) {
+                state.updateTask(editingTask.id, formData);
+            } else {
+                state.addTask(formData);
+            }
+            isModalOpen = false;
+            editingTask = null;
             render();
         };
 
         const handleDeleteTask = (id) => {
             if (confirm('คุณแน่ใจหรือไม่ว่าต้องการลบงานนี้?')) {
-                appState.tasks = appState.tasks.filter(t => t.id !== id);
-                appState.viewingTask = null;
+                state.deleteTask(id);
+                viewingTask = null;
                 render();
             }
         };
 
         const handleChangeStatus = (id, newStatus) => {
-            const task = appState.tasks.find(t => t.id === id);
-            if (task) task.status = newStatus;
+            state.updateTask(id, { status: newStatus });
             render();
         };
 
         const openAddModal = () => {
-            appState.editingTask = null;
-            appState.isModalOpen = true;
-            appState.viewingTask = null;
+            editingTask = null;
+            isModalOpen = true;
             render();
         };
 
         const openEditModal = (task) => {
-            appState.viewingTask = null;
-            appState.editingTask = task;
-            appState.isModalOpen = true;
+            viewingTask = null;
+            editingTask = task;
+            isModalOpen = true;
             render();
         };
 
         const openViewModal = (task) => {
-            appState.viewingTask = task;
-            appState.isModalOpen = false;
+            viewingTask = task;
             render();
         };
 
-        const closeModals = () => {
-            appState.isModalOpen = false;
-            appState.editingTask = null;
-            appState.viewingTask = null;
+        const closeModal = () => {
+            isModalOpen = false;
+            editingTask = null;
             render();
         };
 
-        const setCurrentView = (view) => {
-            appState.currentView = view;
+        const closeViewModal = () => {
+            viewingTask = null;
             render();
         };
 
-        // ============================================
-        // View Components
-        // ============================================
+        // ====== COMPONENTS ======
         const renderNavigation = () => {
             const navItems = [
                 { id: 'dashboard', label: 'หน้าหลัก', icon: 'layout-dashboard' },
-                { id: 'board', label: 'กระดานงาน', icon: 'kanban' },
+                { id: 'board', label: 'กระดานงาน', icon: 'kanban-square' },
                 { id: 'calendar', label: 'ปฏิทิน', icon: 'calendar' },
-                { id: 'analytics', label: 'วัดผล', icon: 'bar-chart' },
+                { id: 'analytics', label: 'วัดผล', icon: 'bar-chart-2' },
                 { id: 'members', label: 'ทีมงาน', icon: 'users' },
             ];
 
@@ -232,8 +225,8 @@
                 <!-- Mobile Bottom Nav -->
                 <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center p-2 pb-safe z-40 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
                     ${navItems.map(item => `
-                        <button onclick="setCurrentView('${item.id}')" class="flex flex-col items-center p-2 w-full rounded-lg ${appState.currentView === item.id ? 'text-indigo-600 font-bold' : 'text-gray-500'}">
-                            <div class="mb-1">${createIcon(item.icon, 20)}</div>
+                        <button onclick="currentView='${item.id}'; render()" class="flex flex-col items-center p-2 w-full rounded-lg ${currentView === item.id ? 'text-indigo-600 font-bold' : 'text-gray-500'}">
+                            <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"></svg>
                             <span class="text-[10px]">${item.label}</span>
                         </button>
                     `).join('')}
@@ -247,15 +240,15 @@
                     </div>
                     <div class="flex-1 px-4 space-y-2 mt-2">
                         ${navItems.map(item => `
-                            <button onclick="setCurrentView('${item.id}')" class="flex items-center gap-3 w-full p-3 rounded-xl transition-all duration-200 ${appState.currentView === item.id ? 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 font-bold shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'}">
-                                <div class="${appState.currentView === item.id ? 'text-indigo-600' : ''}">${createIcon(item.icon, 20)}</div>
+                            <button onclick="currentView='${item.id}'; render()" class="flex items-center gap-3 w-full p-3 rounded-xl transition-all duration-200 ${currentView === item.id ? 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 font-bold shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'}">
+                                <svg class="w-5 h-5"></svg>
                                 <span>${item.label}</span>
                             </button>
                         `).join('')}
                     </div>
                     <div class="p-4 border-t border-gray-100 bg-gray-50/50">
                         <button onclick="openAddModal()" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:shadow-lg hover:opacity-90 transition-all shadow-md text-sm">
-                            ${createIcon('plus', 18)} สร้างงานใหม่
+                            <svg class="w-4 h-4"></svg> สร้างงานใหม่
                         </button>
                     </div>
                 </div>
@@ -263,12 +256,12 @@
         };
 
         const renderDashboard = () => {
-            const total = appState.tasks.length;
-            const done = appState.tasks.filter(t => t.status === 'done').length;
-            const inProgress = appState.tasks.filter(t => t.status === 'in-progress').length;
-            const todo = appState.tasks.filter(t => t.status === 'todo').length;
+            const total = state.tasks.length;
+            const done = state.tasks.filter(t => t.status === 'done').length;
+            const inProgress = state.tasks.filter(t => t.status === 'in-progress').length;
+            const todo = state.tasks.filter(t => t.status === 'todo').length;
             
-            const sortedTasks = [...appState.tasks].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+            const sortedTasks = [...state.tasks].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
             const upcomingTasks = sortedTasks.filter(t => t.status !== 'done').slice(0, 5);
 
             return `
@@ -279,50 +272,50 @@
                             <p class="text-gray-500 text-sm font-medium">อัปเดตสถานะงานล่าสุดของทีม</p>
                         </div>
                         <button onclick="openAddModal()" class="md:hidden bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-3 rounded-full shadow-lg">
-                            ${createIcon('plus', 24)}
+                            <svg class="w-6 h-6"></svg>
                         </button>
                     </div>
 
-                    <!-- สรุปตัวเลข (Stats Cards) -->
+                    <!-- Stats Cards -->
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div class="bg-gradient-to-br from-indigo-500 to-purple-600 p-5 rounded-3xl shadow-md text-white flex flex-col gap-2 relative overflow-hidden">
-                            <div class="absolute -right-4 -bottom-4 opacity-20">${createIcon('layout-dashboard', 80)}</div>
-                            <div class="text-white/90 text-sm flex items-center gap-2 font-medium">${createIcon('layout-dashboard', 16)} งานทั้งหมด</div>
+                            <div class="absolute -right-4 -bottom-4 opacity-20"><svg class="w-20 h-20"></svg></div>
+                            <div class="text-white/90 text-sm font-medium">งานทั้งหมด</div>
                             <div class="text-4xl font-extrabold">${total}</div>
                         </div>
                         <div class="bg-gradient-to-br from-emerald-400 to-teal-500 p-5 rounded-3xl shadow-md text-white flex flex-col gap-2 relative overflow-hidden">
-                            <div class="absolute -right-4 -bottom-4 opacity-20">${createIcon('check-circle', 80)}</div>
-                            <div class="text-white/90 text-sm flex items-center gap-2 font-medium">${createIcon('check-circle', 16)} เสร็จสิ้น</div>
+                            <div class="absolute -right-4 -bottom-4 opacity-20"><svg class="w-20 h-20"></svg></div>
+                            <div class="text-white/90 text-sm font-medium">เสร็จสิ้น</div>
                             <div class="text-4xl font-extrabold">${done}</div>
                         </div>
                         <div class="bg-gradient-to-br from-blue-400 to-cyan-500 p-5 rounded-3xl shadow-md text-white flex flex-col gap-2 relative overflow-hidden">
-                            <div class="absolute -right-4 -bottom-4 opacity-20">${createIcon('clock', 80)}</div>
-                            <div class="text-white/90 text-sm flex items-center gap-2 font-medium">${createIcon('clock', 16)} กำลังทำ</div>
+                            <div class="absolute -right-4 -bottom-4 opacity-20"><svg class="w-20 h-20"></svg></div>
+                            <div class="text-white/90 text-sm font-medium">กำลังทำ</div>
                             <div class="text-4xl font-extrabold">${inProgress}</div>
                         </div>
                         <div class="bg-gradient-to-br from-orange-400 to-amber-500 p-5 rounded-3xl shadow-md text-white flex flex-col gap-2 relative overflow-hidden">
-                            <div class="absolute -right-4 -bottom-4 opacity-20">${createIcon('alert-circle', 80)}</div>
-                            <div class="text-white/90 text-sm flex items-center gap-2 font-medium">${createIcon('alert-circle', 16)} รอดำเนินการ</div>
+                            <div class="absolute -right-4 -bottom-4 opacity-20"><svg class="w-20 h-20"></svg></div>
+                            <div class="text-white/90 text-sm font-medium">รอดำเนินการ</div>
                             <div class="text-4xl font-extrabold">${todo}</div>
                         </div>
                     </div>
 
-                    <!-- งานที่ใกล้ถึงกำหนด -->
+                    <!-- Upcoming Tasks -->
                     <div class="bg-white rounded-3xl shadow-sm border border-indigo-50 p-6 relative overflow-hidden">
                         <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-indigo-500 to-purple-500"></div>
-                        <h2 class="text-lg font-bold text-gray-800 mb-5 flex items-center gap-2">
-                            ${createIcon('clock', 20)} งานที่ใกล้ถึงกำหนด (ยังไม่เสร็จ)
-                        </h2>
+                        <h2 class="text-lg font-bold text-gray-800 mb-5">งานที่ใกล้ถึงกำหนด (ยังไม่เสร็จ)</h2>
                         <div class="space-y-3">
                             ${upcomingTasks.length === 0 ? `
                                 <p class="text-gray-400 text-center py-4 font-medium">ไม่มีงานค้าง 🎉</p>
                             ` : upcomingTasks.map(task => `
-                                <div onclick="openViewModal(JSON.parse('${JSON.stringify(task).replace(/'/g, "&apos;")}')" class="flex justify-between items-center p-3.5 hover:bg-indigo-50/50 rounded-2xl border border-gray-100 hover:border-indigo-200 transition-all cursor-pointer group">
+                                <div onclick="openViewModal(${JSON.stringify(task).replace(/"/g, '&quot;')})" class="flex justify-between items-center p-3.5 hover:bg-indigo-50/50 rounded-2xl border border-gray-100 hover:border-indigo-200 transition-all cursor-pointer group">
                                     <div>
                                         <h3 class="font-bold text-gray-800 group-hover:text-indigo-700 transition-colors">${task.title}</h3>
                                         <div class="flex gap-4 text-xs text-gray-500 mt-1.5 font-medium">
-                                            <span class="flex items-center gap-1.5"><div class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[8px] font-bold">${task.assignee.substring(0,2)}</div> ${task.assignee}</span>
-                                            <span class="flex items-center gap-1 text-red-500 bg-red-50 px-2 py-0.5 rounded-md">${createIcon('calendar', 12)} ดิว: ${task.dueDate}</span>
+                                            <span class="flex items-center gap-1.5">
+                                                <div class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[8px] font-bold">${task.assignee.substring(0,2)}</div> ${task.assignee}
+                                            </span>
+                                            <span class="flex items-center gap-1 text-red-500 bg-red-50 px-2 py-0.5 rounded-md">ดิว: ${task.dueDate}</span>
                                         </div>
                                     </div>
                                     <span class="text-xs px-3 py-1.5 rounded-full font-bold shadow-sm ${task.status === 'in-progress' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}">
@@ -348,11 +341,10 @@
                     <div class="flex justify-between items-center mb-6">
                         <h1 class="text-2xl font-bold text-gray-800">กระดานงานของทีม</h1>
                         <button onclick="openAddModal()" class="hidden md:flex bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-5 py-2.5 rounded-xl items-center gap-2 hover:shadow-lg hover:opacity-90 transition-all text-sm font-medium">
-                            ${createIcon('plus', 18)} เพิ่มงาน
+                            <svg class="w-4 h-4"></svg> เพิ่มงาน
                         </button>
                     </div>
 
-                    <!-- Columns Grid -->
                     <div class="flex-1 overflow-x-auto pb-4">
                         <div class="flex flex-col md:flex-row gap-6 min-w-full md:min-w-[800px] h-full">
                             ${columns.map(col => `
@@ -363,20 +355,24 @@
                                             ${col.title}
                                         </h3>
                                         <span class="text-sm font-bold text-gray-700 bg-white/80 px-3 py-1 rounded-full shadow-sm">
-                                            ${appState.tasks.filter(t => t.status === col.id).length}
+                                            ${state.tasks.filter(t => t.status === col.id).length}
                                         </span>
                                     </div>
                                     
                                     <div class="flex-1 space-y-3 overflow-y-auto pr-1">
-                                        ${appState.tasks.filter(t => t.status === col.id).map(task => `
-                                            <div onclick="openViewModal(JSON.parse('${JSON.stringify(task).replace(/'/g, "&apos;")}')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-indigo-300 transition-all group cursor-pointer">
+                                        ${state.tasks.filter(t => t.status === col.id).map(task => `
+                                            <div onclick="openViewModal(${JSON.stringify(task).replace(/"/g, '&quot;')})" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-indigo-300 transition-all group cursor-pointer">
                                                 <div class="flex justify-between items-start mb-3">
                                                     <span class="text-[10px] font-bold px-2 py-1 rounded-md border ${getPriorityColor(task.priority)}">
                                                         ${getPriorityLabel(task.priority)}
                                                     </span>
                                                     <div class="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                                        <button onclick="event.stopPropagation(); openEditModal(JSON.parse('${JSON.stringify(task).replace(/'/g, "&apos;")}')" class="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg">${createIcon('edit', 14)}</button>
-                                                        <button onclick="event.stopPropagation(); handleDeleteTask('${task.id}')" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">${createIcon('trash', 14)}</button>
+                                                        <button onclick="event.stopPropagation(); openEditModal(${JSON.stringify(task).replace(/"/g, '&quot;')})" class="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg">
+                                                            <svg class="w-3.5 h-3.5"></svg>
+                                                        </button>
+                                                        <button onclick="event.stopPropagation(); handleDeleteTask('${task.id}')" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                                                            <svg class="w-3.5 h-3.5"></svg>
+                                                        </button>
                                                     </div>
                                                 </div>
                                                 <h4 class="font-bold text-gray-800 text-sm mb-2 group-hover:text-indigo-700 transition-colors">${task.title}</h4>
@@ -425,14 +421,14 @@
                             
                             ${days.map(day => {
                                 const dateStr = `2026-04-${day.toString().padStart(2, '0')}`;
-                                const dayTasks = appState.tasks.filter(t => t.dueDate === dateStr);
+                                const dayTasks = state.tasks.filter(t => t.dueDate === dateStr);
                                 
                                 return `
                                     <div class="min-h-[80px] md:min-h-[100px] border border-gray-100 rounded-xl p-1.5 md:p-2 transition-all hover:bg-gray-50 ${dayTasks.length > 0 ? 'bg-indigo-50/40 border-indigo-100' : 'bg-white'}">
                                         <div class="text-xs font-bold text-right mb-1.5 ${dayTasks.length > 0 ? 'text-indigo-600' : 'text-gray-400'}">${day}</div>
                                         <div class="space-y-1.5">
                                             ${dayTasks.map(task => `
-                                                <div onclick="openViewModal(JSON.parse('${JSON.stringify(task).replace(/'/g, "&apos;")}')" class="text-[9px] md:text-[10px] p-1.5 rounded-md truncate cursor-pointer font-bold shadow-sm transition-transform hover:scale-[1.02]
+                                                <div onclick="openViewModal(${JSON.stringify(task).replace(/"/g, '&quot;')})" class="text-[9px] md:text-[10px] p-1.5 rounded-md truncate cursor-pointer font-bold shadow-sm transition-transform hover:scale-[1.02]
                                                 ${task.status === 'done' ? 'bg-green-100 text-green-700 border border-green-200' : task.status === 'in-progress' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-orange-100 text-orange-700 border border-orange-200'}">
                                                     ${task.title}
                                                 </div>
@@ -448,12 +444,12 @@
         };
 
         const renderAnalytics = () => {
-            const total = appState.tasks.length || 1; 
-            const done = appState.tasks.filter(t => t.status === 'done').length;
+            const total = state.tasks.length || 1;
+            const done = state.tasks.filter(t => t.status === 'done').length;
             const completionRate = Math.round((done / total) * 100) || 0;
 
-            const userStats = appState.teamMembers.map(user => {
-                const userTasks = appState.tasks.filter(t => t.assignee === user);
+            const userStats = state.teamMembers.map(user => {
+                const userTasks = state.tasks.filter(t => t.assignee === user);
                 return {
                     name: user,
                     total: userTasks.length,
@@ -467,33 +463,25 @@
                     <h1 class="text-2xl font-bold text-gray-800 mb-6">วัดผลและรายงาน</h1>
                     
                     <div class="grid md:grid-cols-2 gap-6">
-                        <!-- Card ความคืบหน้าโปรเจกต์ -->
                         <div class="bg-white p-6 rounded-3xl shadow-sm border border-indigo-50 relative overflow-hidden">
                             <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-bl-full -z-10"></div>
-                            <h2 class="font-bold text-gray-800 mb-4 flex items-center gap-2">${createIcon('bar-chart', 20)} ความคืบหน้าโครงการ</h2>
+                            <h2 class="font-bold text-gray-800 mb-4">ความคืบหน้าโครงการ</h2>
                             <div class="flex items-center justify-center py-6">
-                                <div class="relative w-36 h-36 flex items-center justify-center rounded-full border-[10px] border-gray-50 shadow-inner">
-                                    <div class="absolute inset-0 rounded-full border-[10px] border-indigo-500" style="clip-path: polygon(0 0, 100% 0, 100% ${completionRate}%, 0 ${completionRate}%); opacity: 0.9;"></div>
-                                    <div class="text-center z-10 bg-white w-24 h-24 rounded-full flex flex-col items-center justify-center shadow-sm">
-                                        <span class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">${completionRate}%</span>
-                                        <div class="text-[10px] font-bold text-gray-400">เสร็จสิ้น</div>
-                                    </div>
+                                <div class="text-center">
+                                    <div class="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">${completionRate}%</div>
+                                    <div class="text-sm font-bold text-gray-600 mt-2">เสร็จสิ้น ${done}/${total} งาน</div>
                                 </div>
-                            </div>
-                            <div class="text-center font-medium text-sm text-gray-600 bg-gray-50 py-2 rounded-xl">
-                                เสร็จแล้ว <span class="text-indigo-600 font-bold">${done}</span> จาก ${appState.tasks.length} งาน
                             </div>
                         </div>
 
-                        <!-- Card ภาระงาน (Workload) -->
                         <div class="bg-white p-6 rounded-3xl shadow-sm border border-indigo-50">
-                            <h2 class="font-bold text-gray-800 mb-6 flex items-center gap-2">${createIcon('user', 20)} ภาระงานสมาชิก (Workload)</h2>
+                            <h2 class="font-bold text-gray-800 mb-6">ภาระงานสมาชิก</h2>
                             <div class="space-y-5">
                                 ${userStats.map(stat => `
-                                    <div class="group">
+                                    <div>
                                         <div class="flex justify-between text-sm mb-1.5">
                                             <span class="font-bold text-gray-700 flex items-center gap-2">
-                                                <div class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px]">
+                                                <div class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold">
                                                     ${stat.name.substring(0,2)}
                                                 </div>
                                                 ${stat.name}
@@ -502,13 +490,9 @@
                                         </div>
                                         <div class="h-3 w-full bg-gray-100 rounded-full overflow-hidden flex shadow-inner">
                                             ${stat.total > 0 ? `
-                                                <div style="width: ${(stat.done / stat.total) * 100}%" class="h-full bg-gradient-to-r from-emerald-400 to-green-500" title="เสร็จแล้ว"></div>
-                                                <div style="width: ${(stat.todo / stat.total) * 100}%" class="h-full bg-gradient-to-r from-orange-400 to-amber-500" title="กำลังทำ/รอดำเนินการ"></div>
+                                                <div style="width: ${(stat.done / stat.total) * 100}%" class="h-full bg-gradient-to-r from-emerald-400 to-green-500"></div>
+                                                <div style="width: ${(stat.todo / stat.total) * 100}%" class="h-full bg-gradient-to-r from-orange-400 to-amber-500"></div>
                                             ` : ''}
-                                        </div>
-                                        <div class="flex gap-4 mt-2 text-[10px] font-bold text-gray-500 px-1">
-                                            <span class="text-emerald-600 flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-emerald-500"></div>เสร็จ: ${stat.done}</span>
-                                            <span class="text-orange-600 flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-orange-500"></div>ค้าง: ${stat.todo}</span>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -525,13 +509,12 @@
                     <h1 class="text-2xl font-bold text-gray-800 mb-6">จัดการสมาชิกทีม</h1>
                     
                     <div class="grid md:grid-cols-3 gap-6">
-                        <!-- ฟอร์มเพิ่มสมาชิก -->
                         <div class="md:col-span-1 bg-white p-6 rounded-3xl shadow-sm border border-indigo-50 h-fit">
-                            <h2 class="font-bold text-gray-800 mb-4 flex items-center gap-2">${createIcon('user-plus', 18)} เพิ่มสมาชิกใหม่</h2>
-                            <form onsubmit="handleAddMember(event)" class="space-y-4">
+                            <h2 class="font-bold text-gray-800 mb-4">เพิ่มสมาชิกใหม่</h2>
+                            <form onsubmit="event.preventDefault(); addMember()" class="space-y-4">
                                 <div>
                                     <label class="block text-sm font-bold text-gray-700 mb-1.5">ชื่อสมาชิก</label>
-                                    <input required type="text" id="newMemberName" class="w-full border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm shadow-sm" placeholder="ระบุชื่อ (เช่น แบงค์)..." />
+                                    <input required type="text" id="newMemberName" class="w-full border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm shadow-sm" placeholder="ระบุชื่อ..." />
                                 </div>
                                 <button type="submit" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg hover:opacity-90 transition-all text-sm">
                                     เพิ่มเข้าทีม
@@ -539,15 +522,14 @@
                             </form>
                         </div>
 
-                        <!-- รายชื่อสมาชิก -->
                         <div class="md:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-indigo-50">
                             <div class="flex justify-between items-center mb-5">
-                                <h2 class="font-bold text-gray-800 flex items-center gap-2">${createIcon('users', 18)} สมาชิกทั้งหมด</h2>
-                                <span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">${appState.teamMembers.length} คน</span>
+                                <h2 class="font-bold text-gray-800">สมาชิกทั้งหมด</h2>
+                                <span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">${state.teamMembers.length} คน</span>
                             </div>
                             
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                ${appState.teamMembers.map(member => `
+                                ${state.teamMembers.map(member => `
                                     <div class="flex items-center justify-between p-3 border border-gray-100 rounded-2xl hover:border-indigo-200 hover:shadow-sm transition-all group bg-gray-50/50">
                                         <div class="flex items-center gap-3">
                                             <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-100 to-purple-200 text-indigo-800 flex items-center justify-center font-bold shadow-sm border border-white">
@@ -555,14 +537,11 @@
                                             </div>
                                             <span class="font-bold text-gray-700">${member}</span>
                                         </div>
-                                        <button onclick="handleRemoveMember('${member}')" class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100" title="ลบสมาชิก">
-                                            ${createIcon('trash', 16)}
+                                        <button onclick="removeMember('${member}')" class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100">
+                                            <svg class="w-4 h-4"></svg>
                                         </button>
                                     </div>
                                 `).join('')}
-                                ${appState.teamMembers.length === 0 ? `
-                                    <div class="col-span-full text-center py-8 text-gray-400 text-sm font-medium">ยังไม่มีสมาชิกในทีม</div>
-                                ` : ''}
                             </div>
                         </div>
                     </div>
@@ -571,23 +550,25 @@
         };
 
         const renderTaskModal = () => {
-            if (!appState.isModalOpen) return '';
+            if (!isModalOpen) return '';
 
-            const formData = appState.editingTask || {
-                title: '', description: '', status: 'todo', assignee: appState.teamMembers.length > 0 ? appState.teamMembers[0] : 'ไม่มีผู้รับผิดชอบ', dueDate: '2026-04-30', priority: 'medium'
+            const formData = editingTask || {
+                title: '', description: '', status: 'todo', 
+                assignee: state.teamMembers.length > 0 ? state.teamMembers[0] : 'ไม่มี',
+                dueDate: '2026-04-30', priority: 'medium'
             };
 
             return `
-                <div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in" onclick="if(event.target === this) closeModals()">
-                    <div class="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl zoom-in-95 duration-200 border border-white">
+                <div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div class="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200 border border-white">
                         <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-gray-50 to-white">
-                            <h2 class="font-extrabold text-gray-800 text-lg">${appState.editingTask ? '📝 แก้ไขงาน' : '✨ สร้างงานใหม่'}</h2>
-                            <button onclick="closeModals()" class="text-gray-400 hover:text-gray-700 bg-gray-100 p-1.5 rounded-full hover:bg-gray-200 transition-colors">
-                                ${createIcon('x', 18)}
+                            <h2 class="font-extrabold text-gray-800 text-lg">${editingTask ? '📝 แก้ไขงาน' : '✨ สร้างงานใหม่'}</h2>
+                            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-700 bg-gray-100 p-1.5 rounded-full hover:bg-gray-200 transition-colors">
+                                <svg class="w-4 h-4"></svg>
                             </button>
                         </div>
                         
-                        <form onsubmit="handleSubmitTask(event, ${appState.editingTask ? 'true' : 'false'})" class="p-6 space-y-5 text-sm">
+                        <form onsubmit="event.preventDefault(); saveTask()" class="p-6 space-y-5 text-sm">
                             <div>
                                 <label class="block text-gray-700 font-bold mb-1.5">ชื่องาน *</label>
                                 <input required type="text" id="taskTitle" value="${formData.title}" class="w-full border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm" placeholder="ระบุชื่องาน..." />
@@ -595,15 +576,14 @@
                             
                             <div>
                                 <label class="block text-gray-700 font-bold mb-1.5">รายละเอียด</label>
-                                <textarea id="taskDescription" rows="3" class="w-full border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm" placeholder="รายละเอียดงานเพิ่มเติม...">${formData.description}</textarea>
+                                <textarea id="taskDescription" rows="3" class="w-full border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-sm" placeholder="รายละเอียดงาน...">${formData.description}</textarea>
                             </div>
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-gray-700 font-bold mb-1.5">ผู้รับผิดชอบ</label>
                                     <select id="taskAssignee" class="w-full border border-gray-200 rounded-xl p-3 bg-white focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm cursor-pointer">
-                                        ${appState.teamMembers.map(m => `<option value="${m}" ${m === formData.assignee ? 'selected' : ''}>${m}</option>`).join('')}
-                                        ${!appState.teamMembers.includes(formData.assignee) && formData.assignee ? `<option value="${formData.assignee}" selected>${formData.assignee} (อดีตสมาชิก)</option>` : ''}
+                                        ${state.teamMembers.map(m => `<option value="${m}" ${formData.assignee === m ? 'selected' : ''}>${m}</option>`).join('')}
                                     </select>
                                 </div>
                                 <div>
@@ -632,7 +612,7 @@
                             </div>
 
                             <div class="pt-5 flex gap-3">
-                                <button type="button" onclick="closeModals()" class="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors">ยกเลิก</button>
+                                <button type="button" onclick="closeModal()" class="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors">ยกเลิก</button>
                                 <button type="submit" class="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:opacity-90 hover:shadow-lg transition-all">บันทึกงาน</button>
                             </div>
                         </form>
@@ -642,164 +622,125 @@
         };
 
         const renderViewModal = () => {
-            if (!appState.viewingTask) return '';
-
-            const task = appState.viewingTask;
+            if (!viewingTask) return '';
 
             return `
-                <div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in" onclick="if(event.target === this) closeModals()">
-                    <div class="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl zoom-in-95 duration-200 border border-white flex flex-col max-h-[90vh]">
+                <div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div class="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-white flex flex-col max-h-[90vh]">
                         
-                        <!-- Header -->
                         <div class="p-5 flex justify-between items-start bg-gradient-to-b from-indigo-50/50 to-white">
                             <div class="flex gap-2">
-                                <span class="text-xs px-3 py-1 rounded-full font-bold shadow-sm border ${getStatusColor(task.status)}">
-                                    ${getStatusLabel(task.status)}
+                                <span class="text-xs px-3 py-1 rounded-full font-bold shadow-sm border ${getStatusColor(viewingTask.status)}">
+                                    ${getStatusLabel(viewingTask.status)}
                                 </span>
-                                <span class="text-xs px-3 py-1 rounded-full font-bold border ${getPriorityColor(task.priority)}">
-                                    ${getPriorityLabel(task.priority)}
+                                <span class="text-xs px-3 py-1 rounded-full font-bold border ${getPriorityColor(viewingTask.priority)}">
+                                    ${getPriorityLabel(viewingTask.priority)}
                                 </span>
                             </div>
-                            <button onclick="closeModals()" class="text-gray-400 hover:text-gray-700 bg-gray-100 p-1.5 rounded-full hover:bg-gray-200 transition-colors">
-                                ${createIcon('x', 18)}
+                            <button onclick="closeViewModal()" class="text-gray-400 hover:text-gray-700 bg-gray-100 p-1.5 rounded-full hover:bg-gray-200 transition-colors">
+                                <svg class="w-4 h-4"></svg>
                             </button>
                         </div>
 
-                        <!-- Body -->
                         <div class="px-6 pb-6 overflow-y-auto">
                             <h2 class="text-2xl font-extrabold text-gray-800 mb-4 leading-tight">
-                                ${task.title}
+                                ${viewingTask.title}
                             </h2>
 
                             <div class="space-y-5">
-                                <!-- รายละเอียด -->
                                 <div>
-                                    <h3 class="text-sm font-bold text-gray-500 mb-2 flex items-center gap-2">${createIcon('align-left', 16)} รายละเอียดงาน</h3>
+                                    <h3 class="text-sm font-bold text-gray-500 mb-2">รายละเอียดงาน</h3>
                                     <div class="bg-gray-50 p-4 rounded-2xl text-gray-700 text-sm leading-relaxed whitespace-pre-wrap border border-gray-100">
-                                        ${task.description || '<span class="text-gray-400 italic">ไม่มีการระบุรายละเอียด</span>'}
+                                        ${viewingTask.description || '<span class="text-gray-400 italic">ไม่มีการระบุรายละเอียด</span>'}
                                     </div>
                                 </div>
 
-                                <!-- ข้อมูลอื่นๆ -->
                                 <div class="grid grid-cols-2 gap-4">
                                     <div class="bg-indigo-50/50 p-3 rounded-2xl border border-indigo-50">
-                                        <span class="block text-xs font-bold text-indigo-400 mb-1 flex items-center gap-1">${createIcon('user', 12)} ผู้รับผิดชอบ</span>
+                                        <span class="block text-xs font-bold text-indigo-400 mb-1">ผู้รับผิดชอบ</span>
                                         <div class="flex items-center gap-2 font-bold text-gray-800 text-sm">
                                             <div class="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-200 to-purple-200 text-indigo-800 flex items-center justify-center text-[10px] shadow-sm">
-                                                ${task.assignee.substring(0,2)}
+                                                ${viewingTask.assignee.substring(0,2)}
                                             </div>
-                                            ${task.assignee}
+                                            ${viewingTask.assignee}
                                         </div>
                                     </div>
 
                                     <div class="bg-red-50/50 p-3 rounded-2xl border border-red-50">
-                                        <span class="block text-xs font-bold text-red-400 mb-1 flex items-center gap-1">${createIcon('calendar', 12)} กำหนดส่ง</span>
-                                        <div class="font-bold text-gray-800 text-sm flex items-center gap-1">
-                                            ${task.dueDate}
+                                        <span class="block text-xs font-bold text-red-400 mb-1">กำหนดส่ง</span>
+                                        <div class="font-bold text-gray-800 text-sm">
+                                            ${viewingTask.dueDate}
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Footer Action -->
                         <div class="p-5 border-t border-gray-100 bg-gray-50 flex gap-3 mt-auto">
-                            <button onclick="handleDeleteTask('${task.id}')" class="px-4 py-3 bg-white border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors flex items-center justify-center gap-2" title="ลบงานนี้">
-                                ${createIcon('trash', 18)}
+                            <button onclick="handleDeleteTask('${viewingTask.id}')" class="px-4 py-3 bg-white border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4"></svg>
                             </button>
-                            <button onclick="openEditModal(JSON.parse('${JSON.stringify(task).replace(/'/g, "&apos;")}')" class="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:opacity-90 hover:shadow-lg transition-all flex items-center justify-center gap-2">
-                                ${createIcon('edit', 18)} แก้ไขข้อมูลงาน
+                            <button onclick="openEditModal(${JSON.stringify(viewingTask).replace(/"/g, '&quot;')})" class="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:opacity-90 hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4"></svg> แก้ไขข้อมูลงาน
                             </button>
                         </div>
-
                     </div>
                 </div>
             `;
         };
 
-        // ============================================
-        // Member Management Handlers
-        // ============================================
-        window.handleAddMember = (e) => {
-            e.preventDefault();
-            const input = document.getElementById('newMemberName');
-            const newMemberName = input?.value?.trim();
-            
-            if (newMemberName && !appState.teamMembers.includes(newMemberName)) {
-                appState.teamMembers.push(newMemberName);
-                if (input) input.value = '';
-                render();
-            }
-        };
-
-        window.handleRemoveMember = (name) => {
-            if (confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบ "${name}" ออกจากทีม?\n(งานที่เคยรับผิดชอบอยู่จะยังคงชื่อเดิมไว้)`)) {
-                appState.teamMembers = appState.teamMembers.filter(m => m !== name);
-                render();
-            }
-        };
-
-        window.handleSubmitTask = (e, isEditing) => {
-            e.preventDefault();
-            const title = document.getElementById('taskTitle')?.value;
-            if (!title) {
-                alert("กรุณาใส่งาน");
-                return;
-            }
-
-            const taskData = {
-                title,
-                description: document.getElementById('taskDescription')?.value || '',
-                status: document.getElementById('taskStatus')?.value || 'todo',
-                assignee: document.getElementById('taskAssignee')?.value || '',
-                dueDate: document.getElementById('taskDueDate')?.value || '',
-                priority: document.getElementById('taskPriority')?.value || 'medium',
+        const saveTask = () => {
+            const formData = {
+                title: document.getElementById('taskTitle').value,
+                description: document.getElementById('taskDescription').value,
+                status: document.getElementById('taskStatus').value,
+                assignee: document.getElementById('taskAssignee').value,
+                dueDate: document.getElementById('taskDueDate').value,
+                priority: document.getElementById('taskPriority').value,
             };
-
-            handleSaveTask(taskData);
+            handleSaveTask(formData);
         };
 
-        // ============================================
-        // Global Handlers
-        // ============================================
-        window.openAddModal = openAddModal;
-        window.openEditModal = openEditModal;
-        window.openViewModal = openViewModal;
-        window.closeModals = closeModals;
-        window.setCurrentView = setCurrentView;
-        window.handleDeleteTask = handleDeleteTask;
-        window.handleChangeStatus = handleChangeStatus;
+        const addMember = () => {
+            const input = document.getElementById('newMemberName');
+            if (input.value.trim()) {
+                state.addMember(input.value.trim());
+                input.value = '';
+                render();
+            }
+        };
 
-        // ============================================
-        // Render Function
-        // ============================================
-        function render() {
-            const app = document.getElementById('app');
-            
-            let content = '';
-            if (appState.currentView === 'dashboard') content = renderDashboard();
-            else if (appState.currentView === 'board') content = renderBoard();
-            else if (appState.currentView === 'calendar') content = renderCalendar();
-            else if (appState.currentView === 'analytics') content = renderAnalytics();
-            else if (appState.currentView === 'members') content = renderMembers();
+        const removeMember = (name) => {
+            if (confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบ "${name}" ออกจากทีม?`)) {
+                state.removeMember(name);
+                render();
+            }
+        };
 
-            app.innerHTML = `
-                <div class="min-h-screen bg-slate-50 font-sans text-gray-900 pb-20 md:pb-0 md:pl-64">
-                    ${renderNavigation()}
-                    
-                    <main class="h-full min-h-screen pt-4 md:pt-0">
-                        ${content}
-                    </main>
+        // ====== RENDER ======
+        const render = () => {
+            const content = (() => {
+                switch(currentView) {
+                    case 'dashboard': return renderDashboard();
+                    case 'board': return renderBoard();
+                    case 'calendar': return renderCalendar();
+                    case 'analytics': return renderAnalytics();
+                    case 'members': return renderMembers();
+                    default: return renderDashboard();
+                }
+            })();
 
-                    ${renderTaskModal()}
-                    ${renderViewModal()}
-                </div>
+            document.getElementById('app').innerHTML = `
+                ${renderNavigation()}
+                <main class="min-h-screen pb-20 md:pb-0 md:pl-64 bg-slate-50">
+                    ${content}
+                </main>
+                ${renderTaskModal()}
+                ${renderViewModal()}
             `;
-        }
+        };
 
-        // ============================================
-        // Initial Render
-        // ============================================
+        // Initial render
         render();
     </script>
 </body>
