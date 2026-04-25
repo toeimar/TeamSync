@@ -1,11 +1,12 @@
+```html
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TeamSync Pro - Multi-Team</title>
+    <title>TeamSync Pro - Multi-Team Cloud Workspace</title>
     
-    <!-- Tailwind & Fonts -->
+    <!-- Tailwind CSS & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;600;700&display=swap" rel="stylesheet">
     
@@ -14,19 +15,19 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Firebase Global (Compat Version for high stability) -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <!-- Firebase Global Compat (เสถียรที่สุดสำหรับการรันใน Iframe) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
     <style>
-        body { font-family: 'Anuphan', sans-serif; background-color: #f8fafc; }
+        body { font-family: 'Anuphan', sans-serif; background-color: #f8fafc; color: #1e293b; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); }
-        .team-card:hover { transform: translateY(-4px); transition: all 0.2s ease-out; }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade { animation: fadeIn 0.4s ease-out forwards; }
+        .animate-in { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .glass-panel { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); }
+        .team-card:hover { transform: scale(1.02); }
     </style>
 </head>
 <body>
@@ -35,281 +36,256 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- Firebase Initialization ---
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'teamsync-multi-v2';
+        // --- Firebase Config & Initialization ---
+        const config = JSON.parse(__firebase_config);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'teamsync-multi-v4';
         
-        // Initialize Firebase Compat
-        firebase.initializeApp(firebaseConfig);
+        firebase.initializeApp(config);
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        // --- Icons (SVG) ---
+        // --- Custom Icons Components ---
         const Icon = ({ name, size = 20, className = "" }) => {
-            const icons = {
-                dashboard: <path d="M3 3h7v9H3V3zm11 0h7v5h-7V3zm0 9h7v9h-7v-9zM3 16h7v5H3v-5z"/>,
-                board: <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>,
-                calendar: <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/>,
-                analytics: <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-5h2v5zm4 0h-2v-3h2v3zm4 0h-2v-5h2v5z"/>,
-                members: <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>,
-                plus: <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>,
-                x: <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>,
-                logout: <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>,
-                layers: <path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/>,
-                chevronLeft: <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>,
-                chevronRight: <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>,
-                trash: <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>,
-                edit: <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+            const paths = {
+                dashboard: "M3 3h7v9H3V3zm11 0h7v5h-7V3zm0 9h7v9h-7v-9zM3 16h7v5H3v-5z",
+                board: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z",
+                calendar: "M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z",
+                analytics: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-5h2v5zm4 0h-2v-3h2v3zm4 0h-2v-5h2v5z",
+                members: "M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z",
+                plus: "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z",
+                x: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
+                logout: "M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z",
+                grid: "M4 4h7v7H4V4zm0 9h7v7H4v-7zm9-9h7v7h-7V4zm0 9h7v7h-7v-7z",
+                trash: "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z",
+                left: "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z",
+                right: "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
+                userPlus: "M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
             };
             return (
                 <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
-                    {icons[name]}
+                    <path d={paths[name] || ""} />
                 </svg>
             );
         };
 
         function App() {
-            // --- States ---
+            // --- Core States (Persistence) ---
+            const [userProfile, setUserProfile] = useState(() => {
+                const saved = localStorage.getItem('ts_profile');
+                return saved ? JSON.parse(saved) : { name: '', teams: [] };
+            });
+            const [activeTeamId, setActiveTeamId] = useState(null);
+            
+            // --- UI/Data States ---
             const [user, setUser] = useState(null);
-            const [userName, setUserName] = useState(localStorage.getItem('ts_v2_user') || '');
-            const [userTeams, setUserTeams] = useState(JSON.parse(localStorage.getItem('ts_v2_teams') || '[]'));
-            const [activeTeamId, setActiveTeamId] = useState(localStorage.getItem('ts_v2_active') || null);
-            
-            const [appState, setAppState] = useState(localStorage.getItem('ts_v2_user') ? 'team-select' : 'login');
+            const [screen, setScreen] = useState('loading'); // loading, setup, hub, workspace
             const [currentView, setCurrentView] = useState('dashboard');
-            
             const [tasks, setTasks] = useState([]);
             const [members, setMembers] = useState([]);
-            const [isLoading, setIsLoading] = useState(true);
+            const [loadingData, setLoadingData] = useState(false);
 
-            // UI Helpers
+            // Modals
             const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
             const [editingTask, setEditingTask] = useState(null);
             const [viewingTask, setViewingTask] = useState(null);
             const [calendarDate, setCalendarDate] = useState(new Date());
 
-            // --- Auth Initialization ---
+            // --- 1. Auth Persistence ---
             useEffect(() => {
-                const init = async () => {
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await auth.signInWithCustomToken(__initial_auth_token);
-                        } else {
-                            await auth.signInAnonymously();
-                        }
-                    } catch (e) { console.error("Firebase Auth Error", e); }
+                const initAuth = async () => {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await auth.signInWithCustomToken(__initial_auth_token);
+                    } else {
+                        await auth.signInAnonymously();
+                    }
                 };
-                init();
+                initAuth();
                 const unsub = auth.onAuthStateChanged(u => {
                     setUser(u);
-                    setIsLoading(false);
+                    if (!userProfile.name) {
+                        setScreen('setup');
+                    } else {
+                        setScreen('hub');
+                    }
                 });
                 return () => unsub();
             }, []);
 
-            // --- Real-time Sync for Current Team ---
+            // --- 2. Real-time Data Sync (Locked to Team ID) ---
             useEffect(() => {
-                if (!user || !activeTeamId || appState !== 'workspace') return;
+                if (!activeTeamId || screen !== 'workspace') return;
 
-                const teamRef = `artifacts/${appId}/public/data/teams/${activeTeamId.trim()}`;
+                setLoadingData(true);
+                const teamPath = `artifacts/${appId}/public/data/teams/${activeTeamId.trim()}`;
                 
-                // Tasks Sync
-                const unsubTasks = db.collection(`${teamRef}/tasks`).onSnapshot(snap => {
+                const unsubTasks = db.collection(`${teamPath}/tasks`).onSnapshot(snap => {
                     setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                    setLoadingData(false);
                 });
 
-                // Members Sync
-                const unsubMembers = db.collection(`${teamRef}/members`).onSnapshot(snap => {
+                const unsubMembers = db.collection(`${teamPath}/members`).onSnapshot(snap => {
                     setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
                 });
 
-                // Register Current User
-                db.collection(`${teamRef}/members`).doc(user.uid).set({
-                    name: userName,
-                    lastActive: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
+                // Auto-join current user to team database
+                if (user) {
+                    db.collection(`${teamPath}/members`).doc(user.uid).set({
+                        name: userProfile.name,
+                        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+                }
 
                 return () => { unsubTasks(); unsubMembers(); };
-            }, [user, activeTeamId, appState]);
+            }, [activeTeamId, screen, user]);
 
-            // --- User Handlers ---
-            const handleLogin = (e) => {
+            // --- 3. Handlers ---
+            const handleSetupName = (e) => {
                 e.preventDefault();
-                if (userName.trim()) {
-                    localStorage.setItem('ts_v2_user', userName.trim());
-                    setAppState('team-select');
+                const name = e.target.name.value.trim();
+                if (name) {
+                    const newProfile = { ...userProfile, name };
+                    setUserProfile(newProfile);
+                    localStorage.setItem('ts_profile', JSON.stringify(newProfile));
+                    setScreen('hub');
                 }
             };
 
-            const handleJoinOrCreateTeam = (e) => {
+            const joinTeam = (e) => {
                 e.preventDefault();
-                const tid = e.target.teamId.value.trim();
-                if (!tid) return;
-
-                const newList = [...new Set([...userTeams, tid])];
-                setUserTeams(newList);
-                setActiveTeamId(tid);
-                localStorage.setItem('ts_v2_teams', JSON.stringify(newList));
-                localStorage.setItem('ts_v2_active', tid);
-                setAppState('workspace');
-                e.target.reset();
+                const tid = e.target.teamId.value.trim().toUpperCase();
+                if (tid) {
+                    const newTeams = [...new Set([...userProfile.teams, tid])];
+                    const newProfile = { ...userProfile, teams: newTeams };
+                    setUserProfile(newProfile);
+                    localStorage.setItem('ts_profile', JSON.stringify(newProfile));
+                    setActiveTeamId(tid);
+                    setScreen('workspace');
+                    e.target.reset();
+                }
             };
 
-            const switchTeam = (tid) => {
-                setActiveTeamId(tid);
-                localStorage.setItem('ts_v2_active', tid);
-                setAppState('workspace');
-                setCurrentView('dashboard');
+            const leaveTeam = (tid) => {
+                if (confirm(`คุณต้องการลบทีม #${tid} ออกจากรายการของคุณใช่หรือไม่? (งานในระบบจะไม่ถูกลบ)`)) {
+                    const newTeams = userProfile.teams.filter(t => t !== tid);
+                    const newProfile = { ...userProfile, teams: newTeams };
+                    setUserProfile(newProfile);
+                    localStorage.setItem('ts_profile', JSON.stringify(newProfile));
+                }
             };
 
-            const removeTeamFromList = (tid) => {
-                if (!confirm(`ต้องการลบทีม #${tid} ออกจากรายการด่วนของคุณ? (ข้อมูลในทีมจะไม่หายไป)`)) return;
-                const updated = userTeams.filter(t => t !== tid);
-                setUserTeams(updated);
-                localStorage.setItem('ts_v2_teams', JSON.stringify(updated));
-                if (activeTeamId === tid) setActiveTeamId(null);
-            };
-
-            const handleFullLogout = () => {
-                if (confirm("คุณต้องการล้างข้อมูลผู้ใช้ทั้งหมดจากเครื่องนี้หรือไม่?")) {
+            const logout = () => {
+                if (confirm("ล้างข้อมูลผู้ใช้ทั้งหมดและเริ่มใหม่?")) {
                     localStorage.clear();
                     window.location.reload();
                 }
             };
 
-            // --- Task Handlers ---
-            const handleSaveTask = async (taskData) => {
+            const handleSaveTask = async (data) => {
                 const path = `artifacts/${appId}/public/data/teams/${activeTeamId}/tasks`;
-                try {
-                    if (editingTask) {
-                        await db.doc(`${path}/${editingTask.id}`).update({ ...taskData, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-                    } else {
-                        await db.collection(path).add({ ...taskData, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-                    }
-                    setIsTaskModalOpen(false);
-                    setEditingTask(null);
-                } catch (e) { alert("เกิดข้อผิดพลาดในการบันทึก"); }
+                if (editingTask) {
+                    await db.doc(`${path}/${editingTask.id}`).update(data);
+                } else {
+                    await db.collection(path).add({ ...data, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                }
+                setIsTaskModalOpen(false);
+                setEditingTask(null);
             };
 
-            const handleDeleteTask = async (id) => {
-                if (!confirm("ยืนยันการลบงาน?")) return;
+            const deleteTask = async (id) => {
+                if (!confirm("ลบงานนี้ใช่หรือไม่?")) return;
                 await db.doc(`artifacts/${appId}/public/data/teams/${activeTeamId}/tasks/${id}`).delete();
                 setViewingTask(null);
             };
 
-            // --- Member Handlers ---
-            const handleAddMember = async () => {
-                const name = prompt("ระบุชื่อสมาชิกใหม่:");
-                if (name && name.trim()) {
-                    await db.collection(`artifacts/${appId}/public/data/teams/${activeTeamId}/members`).add({
-                        name: name.trim(),
-                        role: 'member'
-                    });
-                }
-            };
-
-            const handleRemoveMember = async (id, name) => {
-                if (name === userName) return alert("คุณไม่สามารถลบตัวเองได้ที่นี่");
-                if (!confirm(`ลบ ${name} ออกจากรายชื่อทีม?`)) return;
-                await db.doc(`artifacts/${appId}/public/data/teams/${activeTeamId}/members/${id}`).delete();
-            };
-
-            // --- Computations ---
+            // --- 4. Logic & Stats ---
             const stats = useMemo(() => {
                 const total = tasks.length;
                 const done = tasks.filter(t => t.status === 'done').length;
+                const inProgress = tasks.filter(t => t.status === 'in-progress').length;
                 const rate = total > 0 ? Math.round((done / total) * 100) : 0;
+                
                 const workload = members.map(m => ({
                     name: m.name,
-                    total: tasks.filter(t => t.assignee === m.name).length,
+                    count: tasks.filter(t => t.assignee === m.name).length,
                     done: tasks.filter(t => t.assignee === m.name && t.status === 'done').length
-                })).sort((a, b) => b.total - a.total);
-                return { total, done, rate, workload };
+                })).sort((a,b) => b.count - a.count);
+
+                return { total, done, inProgress, rate, workload };
             }, [tasks, members]);
 
             const calendarDays = useMemo(() => {
                 const y = calendarDate.getFullYear();
                 const m = calendarDate.getMonth();
-                const first = new Date(y, m, 1).getDay();
-                const daysInMonth = new Date(y, m + 1, 0).getDate();
+                const firstDay = new Date(y, m, 1).getDay();
+                const daysCount = new Date(y, m + 1, 0).getDate();
                 const days = [];
-                for (let i = 0; i < first; i++) days.push(null);
-                for (let i = 1; i <= daysInMonth; i++) days.push(new Date(y, m, i));
+                for (let i = 0; i < firstDay; i++) days.push(null);
+                for (let i = 1; i <= daysCount; i++) days.push(new Date(y, m, i));
                 return days;
             }, [calendarDate]);
 
-            // --- UI Views ---
-            if (isLoading) return <div className="h-screen flex items-center justify-center font-bold text-indigo-600 animate-pulse uppercase tracking-widest">Loading TeamSync...</div>;
+            // --- 5. Screen Components ---
 
-            // 1. Login View
-            if (appState === 'login') return (
-                <div className="min-h-screen flex items-center justify-center p-6 bg-slate-100">
-                    <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md animate-fade border border-slate-100">
-                        <div className="text-center mb-10">
-                            <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white text-4xl font-black mx-auto mb-6 shadow-xl rotate-3">T</div>
-                            <h1 className="text-3xl font-black text-slate-800 tracking-tight">TeamSync Pro</h1>
-                            <p className="text-slate-400 font-bold mt-2 uppercase tracking-[0.2em] text-[10px]">Cloud Multi-Team System</p>
+            // A. Setup Screen
+            if (screen === 'setup') return (
+                <div className="h-screen flex items-center justify-center p-6 bg-slate-900">
+                    <div className="bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-md animate-in">
+                        <div className="text-center mb-8">
+                            <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white text-4xl font-black mx-auto mb-4 shadow-xl rotate-3">T</div>
+                            <h1 className="text-3xl font-black text-slate-800">TeamSync Pro</h1>
+                            <p className="text-slate-400 font-bold mt-2">โปรดระบุชื่อของคุณเพื่อเริ่มระบบ</p>
                         </div>
-                        <form onSubmit={handleLogin} className="space-y-4">
-                            <div>
-                                <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">ระบุตัวตนของคุณ</label>
-                                <input required placeholder="ชื่อเล่น หรือ ชื่อจริง" value={userName} onChange={e => setUserName(e.target.value)} className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-indigo-600 rounded-2xl outline-none font-bold transition-all text-center text-lg mt-1" />
-                            </div>
-                            <button type="submit" className="w-full p-5 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-95 transition-all">เริ่มต้นใช้งาน</button>
+                        <form onSubmit={handleSetupName} className="space-y-4">
+                            <input name="name" required placeholder="ชื่อของคุณ (เช่น นัท, แบงค์)" className="w-full p-5 bg-slate-50 border-none rounded-2xl outline-none font-bold text-center text-lg focus:ring-4 focus:ring-indigo-100 transition-all" />
+                            <button className="w-full p-5 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-indigo-700 transition-all">สร้างโปรไฟล์</button>
                         </form>
                     </div>
                 </div>
             );
 
-            // 2. Team Selection View
-            if (appState === 'team-select' || !activeTeamId) return (
-                <div className="min-h-screen p-6 md:p-20 bg-slate-50">
-                    <div className="max-w-4xl mx-auto space-y-12 animate-fade">
+            // B. Hub Screen (Multiple Teams Hub)
+            if (screen === 'hub') return (
+                <div className="min-h-screen p-6 md:p-16 animate-in">
+                    <div className="max-w-5xl mx-auto space-y-12">
                         <header className="flex flex-col md:flex-row justify-between items-center gap-6">
                             <div className="text-center md:text-left">
-                                <h1 className="text-4xl font-black text-slate-800 tracking-tight">ยินดีต้อนรับ, {userName} 👋</h1>
-                                <p className="text-slate-400 font-bold mt-2 uppercase tracking-widest text-xs italic">กรุณาเลือกทีมที่ต้องการจัดการ</p>
+                                <h1 className="text-4xl font-black text-slate-800">สวัสดี, {userProfile.name} 👋</h1>
+                                <p className="text-slate-400 font-bold mt-1">ยินดีต้อนรับสู่ศูนย์กลางทีมของคุณ</p>
                             </div>
-                            <button onClick={handleFullLogout} className="text-red-500 font-bold text-sm bg-red-50 px-4 py-2 rounded-xl hover:bg-red-100 transition-all">ออกจากระบบ</button>
+                            <button onClick={logout} className="text-red-500 font-bold text-sm bg-red-50 px-6 py-2 rounded-xl hover:bg-red-100 transition-all">ออกจากระบบ</button>
                         </header>
 
                         <div className="grid md:grid-cols-2 gap-10">
-                            <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
-                                <h3 className="text-xl font-black mb-6 text-slate-800">สร้างหรือเข้าร่วมทีม</h3>
-                                <form onSubmit={handleJoinOrCreateTeam} className="space-y-4">
-                                    <input name="teamId" required placeholder="ใส่รหัส Team ID (เช่น Work2024)" className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-indigo-600 rounded-2xl outline-none font-bold transition-all" />
-                                    <button className="w-full p-5 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-100 flex items-center justify-center gap-3">
-                                        <Icon name="plus" size={24}/> เข้าสู่ห้องทำงานทีม
+                            <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 h-fit">
+                                <h3 className="text-xl font-black mb-6">สร้างหรือเข้าร่วมทีมใหม่</h3>
+                                <form onSubmit={joinTeam} className="space-y-4">
+                                    <input name="teamId" required placeholder="รหัสทีม (เช่น PROJECT-A)" className="w-full p-5 bg-slate-50 border-none rounded-2xl outline-none font-bold focus:ring-4 focus:ring-indigo-100 transition-all uppercase" />
+                                    <button className="w-full p-5 bg-indigo-600 text-white rounded-2xl font-black shadow-lg flex items-center justify-center gap-2">
+                                        <Icon name="plus" /> เข้าร่วมทีมนี้
                                     </button>
                                 </form>
-                                <div className="mt-6 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
-                                    <p className="text-[10px] text-indigo-700 font-bold leading-relaxed uppercase">
-                                        💡 เคล็ดลับ: ถ้าคุณใส่ ID ที่ไม่เคยมีมาก่อน ระบบจะสร้างทีมใหม่ให้คุณโดยอัตโนมัติ
-                                    </p>
-                                </div>
+                                <p className="mt-6 text-[11px] text-slate-400 font-bold leading-relaxed uppercase tracking-wider italic">
+                                    * หากเป็นรหัสใหม่ ระบบจะสร้างทีมให้คุณทันที
+                                </p>
                             </div>
 
                             <div className="space-y-4">
-                                <h3 className="text-xl font-black px-4 text-slate-800">ทีมของคุณ ({userTeams.length})</h3>
-                                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 no-scrollbar">
-                                    {userTeams.map(tid => (
-                                        <div key={tid} onClick={() => switchTeam(tid)} className="team-card bg-white p-6 rounded-[2rem] border border-transparent hover:border-indigo-600 shadow-sm cursor-pointer flex justify-between items-center transition-all">
+                                <h3 className="text-xl font-black px-4 text-slate-800 tracking-tight">ทีมของคุณ ({userProfile.teams.length})</h3>
+                                <div className="space-y-3 overflow-y-auto max-h-[500px] no-scrollbar">
+                                    {userProfile.teams.map(tid => (
+                                        <div key={tid} onClick={() => { setActiveTeamId(tid); setScreen('workspace'); }} className="group bg-white p-6 rounded-[2.5rem] border border-transparent hover:border-indigo-600 shadow-sm cursor-pointer flex justify-between items-center transition-all team-card">
                                             <div className="flex items-center gap-4">
-                                                <div className="w-14 h-14 bg-indigo-100 text-indigo-700 rounded-2xl flex items-center justify-center font-black text-xl">#</div>
+                                                <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-black text-xl">#</div>
                                                 <div>
-                                                    <p className="font-black text-slate-800 text-lg">{tid}</p>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">คลิกเพื่อเข้าจัดการทีม</p>
+                                                    <p className="font-black text-slate-800 text-lg">Team {tid}</p>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">คลิกเพื่อเข้าสู้ห้องทำงาน</p>
                                                 </div>
                                             </div>
-                                            <button onClick={(e) => { e.stopPropagation(); removeTeamFromList(tid); }} className="p-3 text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
-                                                <Icon name="trash" size={20}/>
-                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); leaveTeam(tid); }} className="p-3 text-slate-200 hover:text-red-500 transition-colors"><Icon name="trash" size={20}/></button>
                                         </div>
                                     ))}
-                                    {userTeams.length === 0 && (
-                                        <div className="py-20 text-center border-4 border-dashed border-slate-200 rounded-[2.5rem]">
-                                            <p className="text-slate-300 font-black text-lg uppercase tracking-widest">ยังไม่มีรายการทีม</p>
-                                        </div>
+                                    {userProfile.teams.length === 0 && (
+                                        <div className="py-20 text-center border-4 border-dashed border-slate-200 rounded-[3rem] text-slate-300 font-bold uppercase tracking-widest">ยังไม่มีทีมงานในรายการ</div>
                                     )}
                                 </div>
                             </div>
@@ -318,96 +294,98 @@
                 </div>
             );
 
-            // 3. Main Workspace View
-            return (
-                <div className="min-h-screen md:pl-64 pb-20 md:pb-0 animate-fade">
-                    {/* Desktop Sidebar */}
-                    <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 bg-slate-50 border-r border-slate-100 z-30">
-                        <div className="p-8 flex items-center gap-3">
-                            <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black shadow-lg">T</div>
-                            <span className="text-2xl font-black text-slate-800 tracking-tighter">TeamSync</span>
-                        </div>
-                        <nav className="flex-1 px-4 space-y-1">
-                            {[
-                                { id: 'dashboard', label: 'หน้าหลัก', icon: 'dashboard' },
-                                { id: 'board', label: 'คัมบังบอร์ด', icon: 'board' },
-                                { id: 'calendar', label: 'ปฏิทินงาน', icon: 'calendar' },
-                                { id: 'analytics', label: 'สถิติทีม', icon: 'analytics' },
-                                { id: 'members', label: 'สมาชิกในทีม', icon: 'members' },
-                            ].map(item => (
-                                <button key={item.id} onClick={() => setCurrentView(item.id)} className={`flex items-center gap-3 w-full p-4 rounded-2xl font-bold text-sm transition-all ${currentView === item.id ? 'bg-white text-indigo-600 shadow-md ring-1 ring-slate-100' : 'text-slate-400 hover:text-indigo-600 hover:bg-white'}`}>
-                                    <Icon name={item.icon} size={18} /> {item.label}
-                                </button>
-                            ))}
-                        </nav>
-                        <div className="p-4 m-4 bg-slate-900 rounded-[2.5rem] text-white shadow-xl">
-                            <div className="flex justify-between items-center mb-3 px-2">
-                                <span className="text-[9px] font-black opacity-40 uppercase tracking-[0.2em]">Active Team</span>
-                                <button onClick={() => setAppState('team-select')} className="text-indigo-400 hover:text-white transition-colors"><Icon name="layers" size={14}/></button>
-                            </div>
-                            <div className="p-4 bg-white/5 border border-white/5 rounded-2xl font-black text-sm truncate mb-4">#{activeTeamId}</div>
-                            <button onClick={() => setAppState('team-select')} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-[10px] font-black uppercase transition-all shadow-lg shadow-indigo-900/40">สลับทีมงาน</button>
-                        </div>
-                    </aside>
-
-                    {/* Mobile Navigation */}
-                    <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white/80 backdrop-blur-md border-t border-slate-100 flex justify-around p-3 pb-safe z-40 shadow-2xl">
-                        {['dashboard', 'board', 'calendar', 'analytics', 'members'].map(v => (
-                            <button key={v} onClick={() => setCurrentView(v)} className={`p-3 rounded-2xl transition-all ${currentView === v ? 'text-indigo-600 bg-indigo-50 shadow-inner' : 'text-slate-400'}`}><Icon name={v} /></button>
+            // C. Workspace Screens
+            const Sidebar = () => (
+                <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 bg-slate-50 border-r border-slate-100 z-30">
+                    <div className="p-8 flex items-center gap-3">
+                        <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black shadow-lg">T</div>
+                        <span className="text-xl font-black text-slate-800">TeamSync</span>
+                    </div>
+                    <nav className="flex-1 px-4 space-y-1">
+                        {[
+                            { id: 'dashboard', label: 'หน้าหลัก', icon: 'dashboard' },
+                            { id: 'board', label: 'คัมบังบอร์ด', icon: 'board' },
+                            { id: 'calendar', label: 'ปฏิทินงาน', icon: 'calendar' },
+                            { id: 'analytics', label: 'วิเคราะห์ผล', icon: 'analytics' },
+                            { id: 'members', label: 'สมาชิกในทีม', icon: 'members' },
+                        ].map(item => (
+                            <button key={item.id} onClick={() => setCurrentView(item.id)} className={`flex items-center gap-3 w-full p-4 rounded-2xl font-bold text-sm transition-all ${currentView === item.id ? 'bg-white text-indigo-600 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-indigo-600'}`}>
+                                <Icon name={item.icon} size={18} /> {item.label}
+                            </button>
                         ))}
-                        <button onClick={() => setAppState('team-select')} className="p-3 text-slate-400"><Icon name="layers" /></button>
                     </nav>
+                    <div className="p-4 m-4 bg-slate-900 rounded-[2.5rem] text-white shadow-xl">
+                        <div className="flex justify-between items-center mb-3 px-2">
+                            <span className="text-[10px] font-black opacity-40 uppercase tracking-widest">Working in</span>
+                            <button onClick={() => setScreen('hub')} className="text-indigo-400 hover:text-white"><Icon name="grid" size={14}/></button>
+                        </div>
+                        <div className="p-4 bg-white/5 border border-white/5 rounded-2xl font-black text-sm truncate mb-4">#{activeTeamId}</div>
+                        <button onClick={() => setScreen('hub')} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">สลับทีมงาน</button>
+                    </div>
+                </aside>
+            );
 
-                    {/* Main Workspace */}
-                    <div className="p-6 md:p-12 max-w-6xl mx-auto space-y-10">
+            const MobileNav = () => (
+                <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white/80 backdrop-blur-md border-t border-slate-100 flex justify-around p-3 pb-safe z-40 shadow-xl">
+                    {['dashboard', 'board', 'calendar', 'analytics', 'members'].map(v => (
+                        <button key={v} onClick={() => setCurrentView(v)} className={`p-3 rounded-2xl transition-all ${currentView === v ? 'text-indigo-600 bg-indigo-50 shadow-inner' : 'text-slate-400'}`}><Icon name={v}/></button>
+                    ))}
+                    <button onClick={() => setScreen('hub')} className="p-3 text-slate-400"><Icon name="grid" /></button>
+                </nav>
+            );
+
+            if (screen === 'workspace') return (
+                <div className="min-h-screen md:pl-64 pb-20 md:pb-0 animate-in">
+                    <Sidebar />
+                    <MobileNav />
+
+                    <main className="p-6 md:p-12 max-w-6xl mx-auto space-y-10">
                         <header className="flex justify-between items-end">
                             <div>
-                                <h2 className="text-4xl font-black text-slate-800 leading-none">
-                                    {currentView === 'dashboard' ? `สวัสดี, คุณ${userName}` : 
+                                <h2 className="text-4xl font-black text-slate-800 leading-tight">
+                                    {currentView === 'dashboard' ? `สวัสดี, คุณ${userProfile.name}` : 
                                      currentView === 'board' ? 'Work Board' : 
                                      currentView === 'calendar' ? 'Calendar' :
                                      currentView === 'analytics' ? 'Performance' : 'Team Members'}
                                 </h2>
-                                <div className="flex items-center gap-2 mt-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Active: #{activeTeamId}</p>
-                                </div>
+                                <p className="text-indigo-500 font-bold mt-1 uppercase tracking-widest text-[10px]">Cloud Active: #{activeTeamId}</p>
                             </div>
                             <button onClick={() => { setEditingTask(null); setIsTaskModalOpen(true); }} className="p-4 bg-indigo-600 text-white rounded-2xl shadow-xl shadow-indigo-100 hover:scale-110 active:scale-95 transition-all">
                                 <Icon name="plus" size={28}/>
                             </button>
                         </header>
 
-                        {/* View Content */}
+                        {/* --- View: Dashboard --- */}
                         {currentView === 'dashboard' && (
-                            <div className="space-y-10">
+                            <div className="space-y-10 animate-in">
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                     <div className="bg-indigo-600 p-6 rounded-[2rem] text-white shadow-lg"><p className="text-[10px] font-black opacity-60 uppercase mb-1">งานทั้งหมด</p><p className="text-4xl font-black">{stats.total}</p></div>
                                     <div className="bg-emerald-500 p-6 rounded-[2rem] text-white shadow-lg"><p className="text-[10px] font-black opacity-60 uppercase mb-1">เสร็จสิ้น</p><p className="text-4xl font-black">{stats.done}</p></div>
-                                    <div className="bg-blue-500 p-6 rounded-[2rem] text-white shadow-lg"><p className="text-[10px] font-black opacity-60 uppercase mb-1">กำลังทำ</p><p className="text-4xl font-black">{tasks.filter(t=>t.status==='in-progress').length}</p></div>
-                                    <div className="bg-slate-800 p-6 rounded-[2rem] text-white shadow-lg"><p className="text-[10px] font-black opacity-60 uppercase mb-1">สมาชิกทีม</p><p className="text-4xl font-black">{members.length}</p></div>
+                                    <div className="bg-blue-500 p-6 rounded-[2rem] text-white shadow-lg"><p className="text-[10px] font-black opacity-60 uppercase mb-1">กำลังทำ</p><p className="text-4xl font-black">{stats.inProgress}</p></div>
+                                    <div className="bg-slate-800 p-6 rounded-[2rem] text-white shadow-lg"><p className="text-[10px] font-black opacity-60 uppercase mb-1">สมาชิกในทีม</p><p className="text-4xl font-black">{members.length}</p></div>
                                 </div>
                                 <div className="grid lg:grid-cols-2 gap-8">
-                                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                                        <h3 className="font-black text-xl mb-6 flex items-center gap-2"><Icon name="dashboard" className="text-indigo-600"/> ภารกิจล่าสุด</h3>
+                                    <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
+                                        <h3 className="font-black text-xl mb-6">งานล่าสุดในทีม</h3>
                                         <div className="space-y-3">
                                             {tasks.slice(-5).reverse().map(t => (
                                                 <div key={t.id} onClick={() => setViewingTask(t)} className="p-5 border border-slate-50 rounded-2xl hover:bg-slate-50 transition-all cursor-pointer flex justify-between items-center group">
-                                                    <div><p className="font-bold text-slate-800 group-hover:text-indigo-600">{t.title}</p><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.assignee} • {t.dueDate}</p></div>
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${t.status === 'done' ? 'bg-emerald-400' : 'bg-slate-100 text-slate-400'}`}><Icon name="chevronRight" size={16}/></div>
+                                                    <div>
+                                                        <p className="font-bold text-slate-800 group-hover:text-indigo-600">{t.title}</p>
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.assignee} • {t.dueDate}</p>
+                                                    </div>
+                                                    <Icon name="right" className="text-slate-200 group-hover:text-indigo-400" size={16} />
                                                 </div>
                                             ))}
-                                            {tasks.length === 0 && <div className="text-center py-10 font-bold text-slate-200 uppercase text-xs italic tracking-widest">ไม่มีข้อมูลงาน</div>}
                                         </div>
                                     </div>
-                                    <div className="bg-indigo-900 p-10 rounded-[2.5rem] text-white flex flex-col justify-center relative overflow-hidden shadow-2xl">
-                                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-[100%] -mr-10 -mt-10"></div>
-                                        <h3 className="font-black text-xl mb-2">Team Progress</h3>
+                                    <div className="bg-slate-900 p-10 rounded-[3rem] text-white flex flex-col justify-center relative overflow-hidden">
+                                        <h3 className="font-black text-xl mb-2">Overall Progress</h3>
                                         <div className="flex items-end gap-5 mt-10">
                                             <div className="text-8xl font-black leading-none">{stats.rate}%</div>
                                             <div className="flex-1 pb-4">
-                                                <div className="h-4 w-full bg-white/10 rounded-full overflow-hidden shadow-inner">
-                                                    <div className="h-full bg-indigo-400 transition-all duration-1000 ease-out" style={{ width: `${stats.rate}%` }}></div>
+                                                <div className="h-4 w-full bg-white/10 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-indigo-400 transition-all duration-1000" style={{ width: `${stats.rate}%` }}></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -416,25 +394,23 @@
                             </div>
                         )}
 
+                        {/* --- View: Board --- */}
                         {currentView === 'board' && (
-                            <div className="flex gap-6 overflow-x-auto pb-10 no-scrollbar min-h-[600px] animate-fade">
+                            <div className="flex gap-6 overflow-x-auto pb-10 no-scrollbar min-h-[600px] animate-in">
                                 {['todo', 'in-progress', 'done'].map(st => (
-                                    <div key={st} className="w-80 shrink-0 flex flex-col bg-slate-50 rounded-[2.5rem] p-4 border border-slate-100">
+                                    <div key={st} className="w-80 shrink-0 flex flex-col bg-slate-100/50 rounded-[3rem] p-4 border border-slate-100">
                                         <div className="flex items-center justify-between mb-6 px-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className={`w-2.5 h-2.5 rounded-full ${st === 'todo' ? 'bg-slate-300' : st === 'in-progress' ? 'bg-blue-500' : 'bg-emerald-500'}`}></div>
-                                                <span className="font-black text-slate-400 text-[10px] uppercase tracking-widest">{st === 'todo' ? 'To Do' : st === 'in-progress' ? 'Doing' : 'Done'}</span>
-                                            </div>
+                                            <span className="font-black text-slate-400 text-[10px] uppercase tracking-widest">{st === 'todo' ? 'To Do' : st === 'in-progress' ? 'Doing' : 'Done'}</span>
                                             <span className="bg-white px-3 py-1 rounded-xl text-[10px] font-black shadow-sm">{tasks.filter(t => t.status === st).length}</span>
                                         </div>
-                                        <div className="space-y-4 overflow-y-auto no-scrollbar pr-1">
+                                        <div className="space-y-4 overflow-y-auto no-scrollbar">
                                             {tasks.filter(t => t.status === st).map(task => (
-                                                <div key={task.id} onClick={() => setViewingTask(task)} className="bg-white p-6 rounded-[1.8rem] shadow-sm border border-white hover:border-indigo-200 transition-all cursor-pointer group">
+                                                <div key={task.id} onClick={() => setViewingTask(task)} className="bg-white p-6 rounded-[2rem] shadow-sm border border-white hover:border-indigo-200 transition-all cursor-pointer group">
                                                     <div className={`text-[9px] font-black px-2 py-1 rounded-lg mb-4 inline-block border ${task.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>{task.priority.toUpperCase()}</div>
                                                     <h4 className="font-bold text-slate-800 group-hover:text-indigo-600 leading-snug line-clamp-2">{task.title}</h4>
                                                     <div className="mt-6 flex justify-between items-center pt-4 border-t border-slate-50">
                                                         <div className="flex items-center gap-2">
-                                                            <div className="w-7 h-7 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 text-[10px] font-black shadow-sm">{task.assignee.substring(0,2)}</div>
+                                                            <div className="w-7 h-7 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 text-[10px] font-black">{task.assignee.substring(0,2)}</div>
                                                             <span className="text-[10px] font-bold text-slate-400">{task.assignee}</span>
                                                         </div>
                                                         <span className="text-[9px] font-black text-slate-300">{task.dueDate}</span>
@@ -447,24 +423,25 @@
                             </div>
                         )}
 
+                        {/* --- View: Calendar --- */}
                         {currentView === 'calendar' && (
-                            <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm animate-fade">
+                            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm animate-in">
                                 <div className="flex justify-between items-center mb-10 px-4">
                                     <h3 className="text-2xl font-black text-slate-800">{calendarDate.toLocaleString('th-TH', { month: 'long', year: 'numeric' })}</h3>
                                     <div className="flex gap-2">
-                                        <button onClick={() => setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1))} className="p-3 bg-slate-50 rounded-2xl hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-all"><Icon name="chevronLeft" /></button>
-                                        <button onClick={() => setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1))} className="p-3 bg-slate-50 rounded-2xl hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-all"><Icon name="chevronRight" /></button>
+                                        <button onClick={() => setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1))} className="p-3 bg-slate-50 rounded-2xl hover:bg-indigo-50 transition-all"><Icon name="left" /></button>
+                                        <button onClick={() => setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1))} className="p-3 bg-slate-50 rounded-2xl hover:bg-indigo-50 transition-all"><Icon name="right" /></button>
                                     </div>
                                 </div>
                                 <div className="calendar-grid gap-3">
                                     {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map(d => (<div key={d} className="text-center font-black text-slate-300 text-[10px] py-4 uppercase tracking-[0.2em]">{d}</div>))}
                                     {calendarDays.map((date, idx) => {
-                                        if (!date) return <div key={`empty-${idx}`} className="bg-slate-50/20 rounded-2xl min-h-[120px]" />;
+                                        if (!date) return <div key={`empty-${idx}`} className="bg-slate-50/20 rounded-3xl min-h-[120px]" />;
                                         const dateStr = date.toISOString().split('T')[0];
                                         const dayTasks = tasks.filter(t => t.dueDate === dateStr);
                                         const isToday = new Date().toDateString() === date.toDateString();
                                         return (
-                                            <div key={dateStr} className={`bg-slate-50 border border-slate-100 rounded-[1.5rem] p-3 min-h-[120px] hover:border-indigo-300 transition-all ${isToday ? 'ring-2 ring-indigo-500 ring-inset bg-indigo-50/20 shadow-md shadow-indigo-100' : ''}`}>
+                                            <div key={dateStr} className={`bg-slate-50 border border-slate-100 rounded-[1.8rem] p-3 min-h-[120px] transition-all ${isToday ? 'ring-2 ring-indigo-500 ring-inset bg-indigo-50/20' : ''}`}>
                                                 <p className={`text-xs font-black mb-3 ${isToday ? 'text-indigo-600' : 'text-slate-400'}`}>{date.getDate()}</p>
                                                 <div className="space-y-1.5">
                                                     {dayTasks.map(t => (<div key={t.id} onClick={() => setViewingTask(t)} className={`text-[8px] font-black p-2 rounded-xl truncate cursor-pointer shadow-sm ${t.status === 'done' ? 'bg-emerald-500 text-white' : 'bg-white text-slate-700 border border-slate-100'}`}>{t.title}</div>))}
@@ -476,12 +453,12 @@
                             </div>
                         )}
 
+                        {/* --- View: Analytics --- */}
                         {currentView === 'analytics' && (
-                            <div className="grid lg:grid-cols-2 gap-10 animate-fade">
-                                <div className="bg-white p-12 rounded-[3rem] shadow-sm border border-slate-100 text-center flex flex-col items-center justify-center">
-                                    <h3 className="text-2xl font-black text-slate-800 mb-2">Performance Score</h3>
-                                    <p className="text-slate-400 font-bold mb-10 text-xs uppercase tracking-widest">ภาพรวมงานที่สำเร็จ</p>
-                                    <div className="relative w-64 h-64 flex items-center justify-center">
+                            <div className="grid lg:grid-cols-2 gap-10 animate-in">
+                                <div className="bg-white p-12 rounded-[3.5rem] shadow-sm border border-slate-100 text-center flex flex-col items-center justify-center">
+                                    <h3 className="text-2xl font-black text-slate-800 mb-2">Success Rate</h3>
+                                    <div className="relative w-64 h-64 flex items-center justify-center mt-10">
                                         <svg className="w-full h-full transform -rotate-90">
                                             <circle cx="128" cy="128" r="110" stroke="currentColor" strokeWidth="24" fill="transparent" className="text-slate-100" />
                                             <circle cx="128" cy="128" r="110" stroke="currentColor" strokeWidth="24" fill="transparent" strokeDasharray="691" strokeDashoffset={691 - (691 * stats.rate) / 100} className="text-indigo-600 transition-all duration-1000 ease-out" strokeLinecap="round" />
@@ -489,17 +466,17 @@
                                         <span className="absolute text-6xl font-black text-slate-800 tracking-tighter">{stats.rate}%</span>
                                     </div>
                                 </div>
-                                <div className="bg-slate-900 p-12 rounded-[3rem] shadow-2xl text-white">
+                                <div className="bg-slate-900 p-12 rounded-[3.5rem] shadow-2xl text-white">
                                     <h3 className="text-2xl font-black mb-10 tracking-tight">Team Workload</h3>
-                                    <div className="space-y-8 overflow-y-auto max-h-[450px] pr-2 no-scrollbar">
+                                    <div className="space-y-8 overflow-y-auto max-h-[450px] no-scrollbar">
                                         {stats.workload.map(w => (
                                             <div key={w.name}>
                                                 <div className="flex justify-between items-end mb-3">
                                                     <span className="font-bold flex items-center gap-3"><div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-xs font-black shadow-lg">{w.name.substring(0,2)}</div>{w.name}</span>
-                                                    <span className="text-[10px] font-black opacity-60 uppercase">{w.done}/{w.total} Done</span>
+                                                    <span className="text-[10px] font-black opacity-60 uppercase">{w.done}/{w.count} Done</span>
                                                 </div>
-                                                <div className="h-4 w-full bg-white/10 rounded-full overflow-hidden shadow-inner">
-                                                    <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${(w.total / (stats.total || 1)) * 100}%` }}></div>
+                                                <div className="h-4 w-full bg-white/10 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${(w.count / (stats.total || 1)) * 100}%` }}></div>
                                                 </div>
                                             </div>
                                         ))}
@@ -508,55 +485,61 @@
                             </div>
                         )}
 
+                        {/* --- View: Members --- */}
                         {currentView === 'members' && (
-                            <div className="space-y-10 animate-fade">
+                            <div className="space-y-10 animate-in">
                                 <div className="flex justify-between items-center px-4">
-                                    <div><h3 className="text-3xl font-black text-slate-800 tracking-tight">สมาชิกในทีม</h3><p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Active: {members.length} Users</p></div>
-                                    <button onClick={handleAddMember} className="p-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-100 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"><Icon name="plus" size={20}/> เพิ่มสมาชิก</button>
+                                    <h3 className="text-3xl font-black text-slate-800 tracking-tight">สมาชิกในทีม ({members.length})</h3>
+                                    <button onClick={async () => {
+                                        const name = prompt("ระบุชื่อสมาชิกใหม่:");
+                                        if(name && name.trim()) await db.collection(`artifacts/${appId}/public/data/teams/${activeTeamId}/members`).add({ name: name.trim(), role: 'member' });
+                                    }} className="p-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg flex items-center gap-2"><Icon name="userPlus" /> เพิ่มสมาชิก</button>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {members.map(m => (
-                                        <div key={m.id} className="group bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between hover:border-indigo-600 transition-all">
+                                        <div key={m.id} className="group bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm flex items-center justify-between hover:border-indigo-600 transition-all">
                                             <div className="flex items-center gap-5">
                                                 <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-[1.5rem] flex items-center justify-center font-black text-2xl shadow-inner">{m.name.substring(0,2)}</div>
                                                 <div>
                                                     <h4 className="font-black text-slate-800 text-lg leading-none">{m.name}</h4>
-                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{m.name === userName ? 'You (Me)' : 'Team Member'}</p>
+                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{m.name === userProfile.name ? 'เจ้าของบัญชี' : 'สมาชิกทีม'}</p>
                                                 </div>
                                             </div>
-                                            {m.name !== userName && (
-                                                <button onClick={() => handleRemoveMember(m.id, m.name)} className="p-3 text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all bg-slate-50 rounded-xl"><Icon name="trash" size={20}/></button>
+                                            {m.name !== userProfile.name && (
+                                                <button onClick={async () => {
+                                                    if(confirm(`ต้องการลบ ${m.name} ออกจากทีม?`)) await db.doc(`artifacts/${appId}/public/data/teams/${activeTeamId}/members/${m.id}`).delete();
+                                                }} className="p-3 text-slate-100 hover:text-red-500 transition-all bg-slate-50 rounded-xl"><Icon name="trash" size={20}/></button>
                                             )}
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         )}
-                    </div>
+                    </main>
 
                     {/* Modals */}
                     {isTaskModalOpen && (
                         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md">
-                            <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden animate-fade">
+                            <div className="bg-white w-full max-w-lg rounded-[3.5rem] shadow-2xl overflow-hidden animate-in">
                                 <div className="p-10 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-                                    <h3 className="text-2xl font-black text-slate-800">{editingTask ? '📝 แก้ไขงาน' : '✨ สร้างภารกิจใหม่'}</h3>
-                                    <button onClick={() => setIsTaskModalOpen(false)} className="p-3 hover:bg-white rounded-full transition-all text-slate-400"><Icon name="x"/></button>
+                                    <h3 className="text-2xl font-black text-slate-800">{editingTask ? '📝 แก้ไขงาน' : '✨ สร้างงานใหม่'}</h3>
+                                    <button onClick={() => setIsTaskModalOpen(false)} className="p-3 hover:bg-white rounded-full text-slate-400"><Icon name="x" size={20}/></button>
                                 </div>
                                 <form className="p-10 space-y-6" onSubmit={(e) => {
                                     e.preventDefault();
                                     const fd = new FormData(e.target);
                                     handleSaveTask(Object.fromEntries(fd));
                                 }}>
-                                    <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">ชื่องานที่ต้องทำ</label><input required name="title" defaultValue={editingTask?.title} placeholder="ระบุสิ่งที่ต้องทำ..." className="w-full p-5 bg-slate-50 border-none rounded-[1.5rem] font-bold outline-none focus:ring-4 focus:ring-indigo-100 transition-all" /></div>
+                                    <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">ชื่องาน</label><input required name="title" defaultValue={editingTask?.title} placeholder="ระบุสิ่งที่ต้องทำ..." className="w-full p-5 bg-slate-50 border-none rounded-[1.8rem] font-bold outline-none focus:ring-4 focus:ring-indigo-100 transition-all" /></div>
                                     <div className="grid grid-cols-2 gap-5">
-                                        <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-2">ผู้รับผิดชอบ</label><select name="assignee" defaultValue={editingTask?.assignee || userName} className="w-full p-4 bg-slate-50 border-none rounded-[1.2rem] font-bold outline-none cursor-pointer">{members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}</select></div>
-                                        <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-2">กำหนดเสร็จ</label><input name="dueDate" type="date" defaultValue={editingTask?.dueDate || new Date().toISOString().split('T')[0]} className="w-full p-4 bg-slate-50 border-none rounded-[1.2rem] font-bold outline-none cursor-pointer" /></div>
+                                        <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-2">ผู้รับผิดชอบ</label><select name="assignee" defaultValue={editingTask?.assignee || userProfile.name} className="w-full p-4 bg-slate-50 border-none rounded-[1.2rem] font-bold outline-none">{members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}</select></div>
+                                        <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-2">กำหนดเสร็จ</label><input name="dueDate" type="date" defaultValue={editingTask?.dueDate || new Date().toISOString().split('T')[0]} className="w-full p-4 bg-slate-50 border-none rounded-[1.2rem] font-bold outline-none" /></div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-5">
-                                        <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-2">สถานะ</label><select name="status" defaultValue={editingTask?.status || 'todo'} className="w-full p-4 bg-slate-50 border-none rounded-[1.2rem] font-bold outline-none cursor-pointer"><option value="todo">To Do</option><option value="in-progress">Doing</option><option value="done">Done</option></select></div>
-                                        <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-2">ความสำคัญ</label><select name="priority" defaultValue={editingTask?.priority || 'medium'} className="w-full p-4 bg-slate-50 border-none rounded-[1.2rem] font-bold outline-none cursor-pointer"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
+                                        <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-2">สถานะ</label><select name="status" defaultValue={editingTask?.status || 'todo'} className="w-full p-4 bg-slate-50 border-none rounded-[1.2rem] font-bold outline-none"><option value="todo">To Do</option><option value="in-progress">Doing</option><option value="done">Done</option></select></div>
+                                        <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-2">ความสำคัญ</label><select name="priority" defaultValue={editingTask?.priority || 'medium'} className="w-full p-4 bg-slate-50 border-none rounded-[1.2rem] font-bold outline-none"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
                                     </div>
-                                    <button className="w-full p-6 bg-indigo-600 text-white rounded-[2rem] font-black shadow-xl shadow-indigo-100 hover:-translate-y-1 active:scale-95 transition-all mt-4">บันทึกข้อมูลและซิงค์คลาวด์</button>
+                                    <button className="w-full p-6 bg-indigo-600 text-white rounded-[2.2rem] font-black shadow-xl shadow-indigo-100 hover:-translate-y-1 active:scale-95 transition-all mt-4">บันทึกข้อมูลงาน</button>
                                 </form>
                             </div>
                         </div>
@@ -564,16 +547,16 @@
 
                     {viewingTask && (
                         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md">
-                            <div className="bg-white w-full max-w-md rounded-[3.5rem] shadow-2xl p-12 relative animate-fade">
-                                <button onClick={() => setViewingTask(null)} className="absolute top-10 right-10 p-3 hover:bg-slate-50 rounded-full transition-all text-slate-400"><Icon name="x"/></button>
+                            <div className="bg-white w-full max-w-md rounded-[4rem] shadow-2xl p-12 relative animate-in">
+                                <button onClick={() => setViewingTask(null)} className="absolute top-10 right-10 p-3 hover:bg-slate-50 rounded-full text-slate-400 transition-all"><Icon name="x" size={24}/></button>
                                 <div className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase mb-8 inline-block border ${viewingTask.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>{viewingTask.priority} PRIORITY</div>
                                 <h3 className="text-4xl font-black text-slate-800 mb-10 leading-tight">{viewingTask.title}</h3>
                                 <div className="space-y-5 mb-12">
-                                    <div className="flex items-center gap-5 p-6 bg-slate-50 rounded-[2rem]"><div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black shadow-lg text-xl">{viewingTask.assignee.substring(0,2)}</div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Assignee</p><p className="font-bold text-slate-800 text-xl">{viewingTask.assignee}</p></div></div>
-                                    <div className="flex items-center gap-5 p-6 bg-slate-50 rounded-[2rem]"><div className="w-14 h-14 bg-white border border-slate-100 rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm"><Icon name="calendar" size={24}/></div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Due Date</p><p className="font-bold text-slate-800 text-xl">{viewingTask.dueDate}</p></div></div>
+                                    <div className="flex items-center gap-5 p-6 bg-slate-50 rounded-[2.5rem] shadow-inner"><div className="w-16 h-16 bg-indigo-600 rounded-[1.5rem] flex items-center justify-center text-white font-black shadow-lg text-xl">{viewingTask.assignee.substring(0,2)}</div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Assignee</p><p className="font-bold text-slate-800 text-xl">{viewingTask.assignee}</p></div></div>
+                                    <div className="flex items-center gap-5 p-6 bg-slate-50 rounded-[2.5rem] shadow-inner"><div className="w-16 h-16 bg-white border border-slate-100 rounded-[1.5rem] flex items-center justify-center text-indigo-600 shadow-sm"><Icon name="calendar" size={28}/></div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Due Date</p><p className="font-bold text-slate-800 text-xl">{viewingTask.dueDate}</p></div></div>
                                 </div>
                                 <div className="flex gap-4">
-                                    <button onClick={() => handleDeleteTask(viewingTask.id)} className="p-6 bg-red-50 text-red-500 rounded-[2rem] hover:bg-red-100 transition-all active:scale-95"><Icon name="trash" size={28}/></button>
+                                    <button onClick={() => deleteTask(viewingTask.id)} className="p-6 bg-red-50 text-red-500 rounded-[2rem] hover:bg-red-100 active:scale-95 transition-all"><Icon name="trash" size={28}/></button>
                                     <button onClick={() => { setEditingTask(viewingTask); setViewingTask(null); setIsTaskModalOpen(true); }} className="flex-1 p-6 bg-slate-900 text-white rounded-[2.5rem] font-black shadow-2xl hover:-translate-y-1 active:scale-95 transition-all">แก้ไขภารกิจ</button>
                                 </div>
                             </div>
@@ -581,6 +564,9 @@
                     )}
                 </div>
             );
+
+            // D. Loading Screen
+            return <div className="h-screen flex items-center justify-center font-bold text-indigo-600 animate-pulse uppercase tracking-[0.3em]">Loading Workspace...</div>;
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
