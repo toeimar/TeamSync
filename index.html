@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -58,6 +59,7 @@
         const Icon = ({ name, size = 18, className = "" }) => {
             const paths = {
                 dashboard: "M3 3h7v9H3V3zm11 0h7v5h-7V3zm0 9h7v9h-7v-9zM3 16h7v5H3v-5z",
+                mytasks: "M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z",
                 board: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z",
                 calendar: "M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z",
                 analytics: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-5h2v5zm4 0h-2v-3h2v3zm4 0h-2v-5h2v5z",
@@ -68,7 +70,8 @@
                 layers: "M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z",
                 edit: "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z",
                 x: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
-                chevronRight: "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"
+                chevronRight: "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
+                bell: "M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"
             };
             return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d={paths[name] || ""} /></svg>;
         };
@@ -91,9 +94,14 @@
             // UI States
             const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
             const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+            const [isNotifOpen, setIsNotifOpen] = useState(false);
+            const [notifTab, setNotifTab] = useState('personal'); 
+            
             const [editingTask, setEditingTask] = useState(null);
             const [viewingTask, setViewingTask] = useState(null);
             const [calDate, setCalDate] = useState(new Date());
+            
+            const [selectedAssignees, setSelectedAssignees] = useState([]);
 
             // 1. Auth Sync & Global Profile
             useEffect(() => {
@@ -122,10 +130,17 @@
                 if (screen !== 'workspace' || !activeTeamId || !user) return;
 
                 const teamPath = `teams_v16/${activeTeamId}`;
-                const unsubTasks = db.collection(`${teamPath}/tasks`).onSnapshot(s => setTasks(s.docs.map(d => ({id: d.id, ...d.data()}))));
+                const unsubTasks = db.collection(`${teamPath}/tasks`).onSnapshot(s => {
+                    setTasks(s.docs.map(d => {
+                        const data = d.data();
+                        let arr = data.assignees || [];
+                        if (data.assignee && arr.length === 0) arr = [data.assignee];
+                        return { id: d.id, ...data, assignees: arr };
+                    }));
+                });
+                
                 const unsubMembers = db.collection(`${teamPath}/members`).onSnapshot(s => setMembers(s.docs.map(d => ({id: d.id, ...d.data()}))));
 
-                // จดจำและอัปเดตชื่อในทีม (ป้องกันคนซ้ำด้วยการใช้ UID)
                 db.collection(`${teamPath}/members`).doc(user.uid).set({
                     name: profile?.name || "User",
                     email: user.email,
@@ -177,21 +192,127 @@
                 setView('dashboard');
             };
 
+            const openCreateTask = () => {
+                setEditingTask(null);
+                setSelectedAssignees(profile ? [profile.name] : []);
+                setIsTaskModalOpen(true);
+            };
+
+            const openEditTask = (task) => {
+                setEditingTask(task);
+                setSelectedAssignees(task.assignees || []);
+                setViewingTask(null);
+                setIsTaskModalOpen(true);
+            };
+
             const saveTask = async (data) => {
                 const path = `teams_v16/${activeTeamId}/tasks`;
-                if (editingTask) await db.doc(`${path}/${editingTask.id}`).update(data);
-                else await db.collection(path).add({ ...data, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                const taskData = { ...data, assignees: selectedAssignees.length > 0 ? selectedAssignees : [profile.name] };
+                
+                if (editingTask) await db.doc(`${path}/${editingTask.id}`).update(taskData);
+                else await db.collection(path).add({ ...taskData, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                
                 setIsTaskModalOpen(false);
                 setEditingTask(null);
             };
 
+            // 1. ฟังก์ชันลบงานแบบทำงานได้จริง พร้อมดักจับ Error
+            const deleteTask = async (taskId) => {
+                if (window.confirm("คุณยืนยันที่จะลบงานนี้ใช่หรือไม่? (ไม่สามารถกู้คืนได้)")) {
+                    try {
+                        await db.collection('teams_v16').doc(activeTeamId).collection('tasks').doc(taskId).delete();
+                        setViewingTask(null);
+                        setIsTaskModalOpen(false);
+                        // กรณีลบสำเร็จ UI จะเปลี่ยนอัตโนมัติผ่าน Snapshot ไม่ต้อง alert กวนใจ
+                    } catch (err) {
+                        console.error("Error deleting task:", err);
+                        alert(`ลบงานไม่สำเร็จ (อาจติดสิทธิ์ของฐานข้อมูล)\nรายละเอียด: ${err.message}`);
+                    }
+                }
+            };
+
+            // 2. ฟังก์ชันลบสมาชิกทำงานได้จริง
+            const removeMember = async (m) => {
+                if (m.id === user.uid) {
+                    if (window.confirm("คุณต้องการออกจากทีมนี้ใช่หรือไม่? คุณจะต้องใช้ TEAM-ID เพื่อเข้าใหม่")) {
+                        try {
+                            const updatedTeams = profile.teams.filter(t => t !== activeTeamId);
+                            await db.collection('users_profile_v16').doc(user.uid).update({ teams: updatedTeams });
+                            await db.collection('teams_v16').doc(activeTeamId).collection('members').doc(m.id).delete();
+                            setProfile({ ...profile, teams: updatedTeams });
+                            setScreen('hub');
+                        } catch (err) {
+                            alert(`ออกทีมไม่สำเร็จ: ${err.message}`);
+                        }
+                    }
+                } else {
+                    if (window.confirm(`คุณแน่ใจหรือไม่ที่จะเตะ "${m.name}" ออกจากทีม?`)) {
+                        try {
+                            // ลบข้อมูลคนนั้นออกจากคอลเลกชัน members
+                            await db.collection('teams_v16').doc(activeTeamId).collection('members').doc(m.id).delete();
+                        } catch (err) {
+                            console.error("Error kicking user:", err);
+                            alert(`ลบสมาชิกไม่สำเร็จ (อาจติดสิทธิ์ของฐานข้อมูล Firebase)\nรายละเอียด: ${err.message}`);
+                        }
+                    }
+                }
+            };
+
+            // คำนวณสถิติ Analytics
             const stats = useMemo(() => {
                 const t = tasks.length;
                 const d = tasks.filter(x => x.status === 'done').length;
                 const rate = t > 0 ? Math.round((d / t) * 100) : 0;
-                const workload = members.map(m => ({ name: m.name, count: tasks.filter(x => x.assignee === m.name).length })).sort((a,b) => b.count - a.count);
+                
+                const workload = members.map(m => {
+                    const count = tasks.filter(x => (x.assignees || []).includes(m.name) || (x.assignees || []).includes('ทุกคน')).length;
+                    return { name: m.name, count };
+                }).sort((a,b) => b.count - a.count);
+
                 return { total: t, done: d, rate, workload };
             }, [tasks, members]);
+
+            // จัดกลุ่มงานสำหรับ "My Tasks" และ "แจ้งเตือน"
+            const myPersonalTasksOnly = useMemo(() => {
+                return tasks.filter(t => (t.assignees || []).includes(profile?.name) && !(t.assignees || []).includes('ทุกคน'));
+            }, [tasks, profile]);
+
+            const groupTasksOnly = useMemo(() => {
+                return tasks.filter(t => (t.assignees || []).includes('ทุกคน'));
+            }, [tasks]);
+
+            // สำหรับแจ้งเตือน (เอาเฉพาะที่ไม่เสร็จ)
+            const myPersonalPendingTasks = useMemo(() => myPersonalTasksOnly.filter(t => t.status !== 'done'), [myPersonalTasksOnly]);
+            const groupPendingTasks = useMemo(() => groupTasksOnly.filter(t => t.status !== 'done'), [groupTasksOnly]);
+            const totalPendingTasks = myPersonalPendingTasks.length + groupPendingTasks.length;
+
+            // UI Helper: แสดงรายชื่อผู้รับผิดชอบ
+            const renderAssignees = (assigneesList) => {
+                if (!assigneesList || assigneesList.length === 0) return null;
+                if (assigneesList.includes('ทุกคน')) {
+                    return (
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-6 h-6 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center text-[9px] font-black uppercase shadow-inner">ALL</div>
+                            <span className="text-[9px] font-bold text-slate-400">ทุกคน</span>
+                        </div>
+                    );
+                }
+                return (
+                    <div className="flex items-center gap-1.5">
+                        <div className="flex -space-x-2">
+                            <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-[9px] font-black uppercase shadow-inner border border-white z-10">
+                                {assigneesList[0].substring(0,2)}
+                            </div>
+                            {assigneesList.length > 1 && (
+                                <div className="w-6 h-6 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center text-[9px] font-black shadow-inner border border-white z-0 pl-1">
+                                    +{assigneesList.length - 1}
+                                </div>
+                            )}
+                        </div>
+                        <span className="text-[9px] font-bold text-slate-400 truncate max-w-[80px]">{assigneesList.join(', ')}</span>
+                    </div>
+                );
+            };
 
             // --- Views ---
 
@@ -217,7 +338,7 @@
                 </div>
             );
 
-            // Setup / Edit Profile Modal (Reusable)
+            // Setup / Edit Profile Modal
             const ProfileEditor = ({ title, onClose }) => (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-sm">
                     <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-sm text-center animate-in relative">
@@ -234,7 +355,7 @@
 
             if (screen === 'setup') return <ProfileEditor title="ตั้งค่าโปรไฟล์" />;
 
-            // Team Hub (หน้าเลือกทีม)
+            // Team Hub
             if (screen === 'hub') return (
                 <div className="min-h-screen p-5 bg-slate-50 animate-in max-w-md mx-auto pb-20">
                     {isEditProfileOpen && <ProfileEditor title="แก้ไขโปรไฟล์" onClose={() => setIsEditProfileOpen(false)} />}
@@ -258,7 +379,7 @@
                     <div className="space-y-3">
                         <h2 className="text-[10px] font-black px-4 text-slate-400 uppercase tracking-widest">รายการทีมที่คุณสังกัด ({profile?.teams?.length || 0})</h2>
                         {profile?.teams?.map(tid => (
-                            <div key={tid} onClick={() => enterTeam(tid)} className="bg-white p-5 rounded-2xl shadow-sm border border-transparent hover:border-indigo-100 active:scale-95 transition-all flex justify-between items-center group">
+                            <div key={tid} onClick={() => enterTeam(tid)} className="bg-white p-5 rounded-2xl shadow-sm border border-transparent hover:border-indigo-100 active:scale-95 transition-all flex justify-between items-center group cursor-pointer">
                                 <div className="flex items-center gap-4"><div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-black text-sm group-hover:bg-indigo-600 group-hover:text-white transition-colors">#</div><p className="font-black text-lg">{tid}</p></div>
                                 <Icon name="chevronRight" className="text-slate-200" />
                             </div>
@@ -267,6 +388,23 @@
                 </div>
             );
 
+            // เมนูด้านซ้ายและด้านล่าง
+            const sidebarMenu = [
+                { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+                { id: 'mytasks', label: 'งานของฉัน', icon: 'mytasks' }, // เพิ่มเมนู My Tasks
+                { id: 'board', label: 'Board', icon: 'board' },
+                { id: 'calendar', label: 'Calendar', icon: 'calendar' },
+                { id: 'analytics', label: 'Analytics', icon: 'analytics' },
+                { id: 'members', label: 'Members', icon: 'members' }
+            ];
+
+            const mobileMenu = [
+                { id: 'dashboard', label: 'Home', icon: 'dashboard' },
+                { id: 'mytasks', label: 'My Tasks', icon: 'mytasks' }, // เพิ่มเมนู My Tasks ใน Mobile
+                { id: 'board', label: 'Board', icon: 'board' },
+                { id: 'members', label: 'Members', icon: 'members' }
+            ];
+
             // Workspace Layout
             return (
                 <div className="min-h-screen pb-24 md:pl-64 md:pb-0 font-sans animate-in">
@@ -274,8 +412,10 @@
                     <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 bg-white border-r border-slate-100 p-8 z-30">
                         <div className="flex items-center gap-2 mb-10"><div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-black">T</div><span className="font-black text-xl tracking-tight">TeamSync</span></div>
                         <nav className="flex-1 space-y-1">
-                            {['dashboard', 'board', 'calendar', 'analytics', 'members'].map(id => (
-                                <button key={id} onClick={() => setView(id)} className={`flex items-center gap-3 w-full p-3.5 rounded-xl text-sm font-bold transition-all ${view === id ? 'active-nav bg-indigo-50 shadow-sm text-indigo-600' : 'text-slate-400 hover:bg-slate-50'}`}><Icon name={id} size={18}/> {id.charAt(0).toUpperCase() + id.slice(1)}</button>
+                            {sidebarMenu.map(menu => (
+                                <button key={menu.id} onClick={() => setView(menu.id)} className={`flex items-center gap-3 w-full p-3.5 rounded-xl text-sm font-bold transition-all ${view === menu.id ? 'active-nav bg-indigo-50 shadow-sm text-indigo-600' : 'text-slate-400 hover:bg-slate-50'}`}>
+                                    <Icon name={menu.icon} size={18}/> {menu.label}
+                                </button>
                             ))}
                         </nav>
                         <div className="p-4 bg-slate-50 rounded-2xl mb-4 text-center">
@@ -287,9 +427,9 @@
                     </aside>
 
                     <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-md border-t border-slate-100 flex justify-around p-2 pb-safe z-40 shadow-xl">
-                        {['dashboard', 'board', 'calendar', 'members'].map(v => (
-                            <button key={v} onClick={() => setView(v)} className={`flex flex-col items-center p-2 flex-1 rounded-xl transition-all ${view === v ? 'active-nav bg-indigo-50/50' : 'text-slate-300'}`}>
-                                <Icon name={v} size={22}/><span className="text-[9px] mt-1 uppercase font-black tracking-widest">{v === 'dashboard' ? 'Home' : v}</span>
+                        {mobileMenu.map(menu => (
+                            <button key={menu.id} onClick={() => setView(menu.id)} className={`flex flex-col items-center p-2 flex-1 rounded-xl transition-all ${view === menu.id ? 'active-nav bg-indigo-50/50' : 'text-slate-300'}`}>
+                                <Icon name={menu.icon} size={22}/><span className="text-[9px] mt-1 uppercase font-black tracking-widest">{menu.label}</span>
                             </button>
                         ))}
                         <button onClick={() => setScreen('hub')} className="flex flex-col items-center p-2 flex-1 text-slate-300 active:scale-90 transition-all"><Icon name="layers" size={22}/><span className="text-[9px] mt-1 uppercase font-black tracking-widest">Teams</span></button>
@@ -301,7 +441,13 @@
                                 <h2 className="text-2xl font-black leading-none flex items-center gap-3">คุณ{profile?.name} <button onClick={() => setIsEditProfileOpen(true)} className="text-indigo-400 active:scale-90"><Icon name="edit" size={14}/></button></h2>
                                 <p className="text-indigo-500 font-bold text-[10px] uppercase tracking-widest mt-2">Active: #{activeTeamId} ({view})</p>
                             </div>
-                            <button onClick={() => {setEditingTask(null); setIsTaskModalOpen(true);}} className="w-12 h-12 btn-primary rounded-2xl shadow-xl flex items-center justify-center active:scale-90 transition-all"><Icon name="plus" size={24}/></button>
+                            <div className="flex gap-2">
+                                <button onClick={() => setIsNotifOpen(true)} className="relative w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center active:scale-90 transition-all border border-slate-100">
+                                    <Icon name="bell" size={20} className="text-slate-600"/>
+                                    {totalPendingTasks > 0 && <span className="absolute top-2 right-3 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
+                                </button>
+                                <button onClick={openCreateTask} className="w-12 h-12 btn-primary rounded-2xl shadow-xl flex items-center justify-center active:scale-90 transition-all"><Icon name="plus" size={24}/></button>
+                            </div>
                         </header>
 
                         {/* DASHBOARD */}
@@ -319,12 +465,86 @@
                                     <h3 className="font-black text-sm mb-4 uppercase tracking-widest text-slate-300">ภารกิจล่าสุด</h3>
                                     <div className="space-y-3">
                                         {tasks.slice(-3).reverse().map(t => (
-                                            <div key={t.id} onClick={() => setViewingTask(t)} className="p-4 bg-slate-50 rounded-2xl flex justify-between items-center group active:bg-indigo-50 transition-all">
-                                                <div><p className="font-bold text-sm group-hover:text-indigo-600 leading-none">{t.title}</p><p className="text-[9px] text-slate-400 mt-2 font-bold uppercase tracking-wider">{t.assignee} • {t.dueDate.split('-').slice(1).join('/')}</p></div>
+                                            <div key={t.id} onClick={() => setViewingTask(t)} className="p-4 bg-slate-50 rounded-2xl flex justify-between items-center group active:bg-indigo-50 transition-all cursor-pointer">
+                                                <div>
+                                                    <p className="font-bold text-sm group-hover:text-indigo-600 leading-none mb-2">{t.title}</p>
+                                                    <div className="flex gap-2 items-center">
+                                                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{t.dueDate.split('-').slice(1).join('/')}</span>
+                                                        <span className="text-slate-300 text-[8px]">•</span>
+                                                        <span className="text-[9px] text-indigo-400 font-bold max-w-[120px] truncate">{(t.assignees || []).join(', ')}</span>
+                                                    </div>
+                                                </div>
                                                 <div className={`w-1.5 h-8 rounded-full ${t.status === 'done' ? 'bg-emerald-400' : 'bg-indigo-400'}`}></div>
                                             </div>
                                         ))}
                                     </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* แถบใหม่: MY TASKS (งานของฉัน) */}
+                        {view === 'mytasks' && (
+                            <div className="bg-white p-7 rounded-[2.5rem] border border-slate-100 shadow-sm animate-in">
+                                <h3 className="text-xl font-black mb-1">งานของฉัน</h3>
+                                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-6">งานที่คุณต้องรับผิดชอบโดยตรง</p>
+                                
+                                <div className="space-y-3 mb-10">
+                                    {myPersonalTasksOnly.length === 0 ? (
+                                        <div className="text-center py-6 bg-slate-50 rounded-2xl">
+                                            <p className="font-bold text-slate-400 text-sm">ไม่มีงานส่วนบุคคล ✌️</p>
+                                        </div>
+                                    ) : (
+                                        myPersonalTasksOnly.map(t => (
+                                            <div key={t.id} onClick={() => setViewingTask(t)} className="bg-slate-50 p-5 rounded-2xl flex justify-between items-center cursor-pointer hover:bg-indigo-50 hover:shadow-sm transition-all border border-transparent hover:border-indigo-100 group">
+                                                <div className="flex gap-4 items-center">
+                                                    <div className={`w-2.5 h-2.5 rounded-full ${t.status === 'done' ? 'bg-emerald-400' : (t.priority === 'high' ? 'bg-red-400' : 'bg-indigo-400')}`}></div>
+                                                    <div>
+                                                        <h4 className={`font-bold text-sm ${t.status === 'done' ? 'line-through text-slate-400' : 'text-slate-800'}`}>{t.title}</h4>
+                                                        <div className="flex gap-2 mt-2 items-center">
+                                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${t.status === 'done' ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-slate-400'}`}>
+                                                                {t.status.toUpperCase()}
+                                                            </span>
+                                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                                                กำหนดส่ง: {t.dueDate}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <Icon name="chevronRight" className="text-slate-200 group-hover:text-indigo-400" />
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                <h3 className="text-xl font-black mb-1 pt-6 border-t border-slate-100">งานกลุ่ม</h3>
+                                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-6">งานที่ทุกคนต้องร่วมกันทำ</p>
+                                
+                                <div className="space-y-3">
+                                    {groupTasksOnly.length === 0 ? (
+                                        <div className="text-center py-6 bg-slate-50 rounded-2xl">
+                                            <p className="font-bold text-slate-400 text-sm">ไม่มีงานกลุ่ม ✌️</p>
+                                        </div>
+                                    ) : (
+                                        groupTasksOnly.map(t => (
+                                            <div key={t.id} onClick={() => setViewingTask(t)} className="bg-amber-50/50 p-5 rounded-2xl flex justify-between items-center cursor-pointer hover:bg-amber-100 hover:shadow-sm transition-all border border-transparent hover:border-amber-200 group">
+                                                <div className="flex gap-4 items-center">
+                                                    <div className={`w-2.5 h-2.5 rounded-full ${t.status === 'done' ? 'bg-emerald-400' : (t.priority === 'high' ? 'bg-red-400' : 'bg-amber-400')}`}></div>
+                                                    <div>
+                                                        <h4 className={`font-bold text-sm ${t.status === 'done' ? 'line-through text-slate-400' : 'text-slate-800'}`}>{t.title}</h4>
+                                                        <div className="flex gap-2 mt-2 items-center">
+                                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${t.status === 'done' ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-slate-400'}`}>
+                                                                {t.status.toUpperCase()}
+                                                            </span>
+                                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                                                กำหนดส่ง: {t.dueDate}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <Icon name="chevronRight" className="text-slate-200 group-hover:text-amber-500" />
+                                            </div>
+                                        ))
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -340,11 +560,11 @@
                                         </div>
                                         <div className="space-y-3 overflow-y-auto pr-1">
                                             {tasks.filter(t => t.status === st).map(task => (
-                                                <div key={task.id} onClick={() => setViewingTask(task)} className="bg-white p-5 rounded-2xl shadow-sm border border-white active:scale-95 transition-all">
+                                                <div key={task.id} onClick={() => setViewingTask(task)} className="bg-white p-5 rounded-2xl shadow-sm border border-white active:scale-95 transition-all cursor-pointer">
                                                     <div className={`text-[8px] font-black px-2 py-0.5 rounded mb-3 inline-block border ${task.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-400'}`}>{task.priority.toUpperCase()}</div>
                                                     <h4 className="font-bold text-sm leading-snug line-clamp-2 text-slate-800">{task.title}</h4>
                                                     <div className="mt-4 flex justify-between items-center pt-3 border-t border-slate-50">
-                                                        <div className="flex items-center gap-1.5"><div className="w-6 h-6 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center text-[9px] font-black uppercase shadow-inner">{task.assignee.substring(0,2)}</div><span className="text-[9px] font-bold text-slate-400">{task.assignee}</span></div>
+                                                        {renderAssignees(task.assignees)}
                                                         <span className="text-[9px] font-black text-slate-200">{task.dueDate.split('-').slice(1).join('/')}</span>
                                                     </div>
                                                 </div>
@@ -374,7 +594,7 @@
                                         const dayTasks = tasks.filter(x => x.dueDate === dateStr);
                                         const isToday = new Date().toISOString().split('T')[0] === dateStr;
                                         return (
-                                            <div key={d} onClick={() => dayTasks.length > 0 && setViewingTask(dayTasks[0])} className={`h-12 md:h-16 rounded-xl flex flex-col items-center justify-center transition-all border border-transparent ${isToday ? 'bg-indigo-600 text-white font-black shadow-lg shadow-indigo-100' : 'bg-slate-50 text-slate-500 active:bg-indigo-50'}`}>
+                                            <div key={d} onClick={() => dayTasks.length > 0 && setViewingTask(dayTasks[0])} className={`h-12 md:h-16 rounded-xl flex flex-col items-center justify-center transition-all border border-transparent ${isToday ? 'bg-indigo-600 text-white font-black shadow-lg shadow-indigo-100' : 'bg-slate-50 text-slate-500 active:bg-indigo-50 cursor-pointer'}`}>
                                                 <span className="text-xs">{d}</span>
                                                 <div className="flex gap-0.5 mt-0.5">{dayTasks.slice(0, 3).map(tk => (<div key={tk.id} className={`w-1 h-1 rounded-full ${isToday ? 'bg-white' : 'bg-indigo-400'}`}></div>))}</div>
                                             </div>
@@ -413,42 +633,163 @@
                             <div className="space-y-4">
                                 <div className="px-4"><h3 className="text-xl font-black text-slate-800 leading-none tracking-tight">Active Team</h3><p className="text-slate-400 text-xs font-bold mt-2 uppercase tracking-widest">ทีมงานปัจจุบัน ({members.length})</p></div>
                                 {members.map(m => (
-                                    <div key={m.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-50 flex justify-between items-center animate-in">
+                                    <div key={m.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-50 flex justify-between items-center animate-in group">
                                         <div className="flex items-center gap-4">
                                             <div className="w-12 h-12 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center font-black text-lg uppercase shadow-inner border border-white">{m.name.substring(0,2)}</div>
-                                            <div><h4 className="font-black text-sm text-slate-800 leading-none">{m.name}</h4><p className="text-[10px] font-bold text-slate-300 mt-2 uppercase tracking-widest">{m.id === user.uid ? 'คุณ (ออนไลน์)' : 'สมาชิก'}</p></div>
+                                            <div>
+                                                <h4 className="font-black text-sm text-slate-800 leading-none">{m.name}</h4>
+                                                <p className="text-[10px] font-bold text-slate-300 mt-2 uppercase tracking-widest">{m.id === user.uid ? 'คุณ (ออนไลน์)' : 'สมาชิก'}</p>
+                                            </div>
                                         </div>
-                                        <div className="text-[10px] font-black text-indigo-400 px-3 py-1 bg-indigo-50 rounded-full">#Verified</div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="text-[10px] font-black text-indigo-400 px-3 py-1 bg-indigo-50 rounded-full hidden md:block">#Verified</div>
+                                            <button onClick={() => removeMember(m)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-90" title={m.id === user.uid ? "ออกจากทีม" : "ลบออกจากทีม"}>
+                                                <Icon name={m.id === user.uid ? "logout" : "trash"} size={16} />
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
                         )}
                     </main>
 
-                    {/* Task Modal */}
+                    {/* Notification Modal (มีแถบแยก งานส่วนตัว / งานกลุ่ม) */}
+                    {isNotifOpen && (
+                        <div className="fixed inset-0 z-[150] flex items-start justify-center p-4 bg-slate-900/60 backdrop-blur-sm pt-20 md:pt-24">
+                            <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-6 relative animate-in max-h-[80vh] flex flex-col">
+                                <button onClick={() => setIsNotifOpen(false)} className="absolute top-6 right-6 p-2 text-slate-300 hover:text-slate-500 active:scale-90 transition-all"><Icon name="x" size={20}/></button>
+                                <h3 className="font-black text-lg mb-4 flex items-center gap-2 text-slate-800 shrink-0"><Icon name="bell" size={20} className="text-indigo-500"/> แจ้งเตือนงาน</h3>
+                                
+                                <div className="flex gap-2 mb-4 shrink-0 bg-slate-50 p-1.5 rounded-2xl">
+                                    <button onClick={() => setNotifTab('personal')} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${notifTab === 'personal' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                                        ส่วนบุคคล ({myPersonalPendingTasks.length})
+                                    </button>
+                                    <button onClick={() => setNotifTab('group')} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${notifTab === 'group' ? 'bg-white text-amber-500 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                                        งานกลุ่ม ({groupPendingTasks.length})
+                                    </button>
+                                </div>
+
+                                <div className="overflow-y-auto no-scrollbar space-y-2 pb-2">
+                                    {notifTab === 'personal' && myPersonalPendingTasks.length === 0 && (
+                                        <div className="text-center py-10 mt-4">
+                                            <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-3">✓</div>
+                                            <p className="text-slate-400 text-sm font-bold">ไม่มีงานส่วนบุคคลที่ค้างอยู่</p>
+                                        </div>
+                                    )}
+                                    {notifTab === 'personal' && myPersonalPendingTasks.map(t => (
+                                        <div key={t.id} onClick={() => { setIsNotifOpen(false); setViewingTask(t); }} className="p-4 bg-indigo-50/30 rounded-2xl cursor-pointer hover:bg-indigo-50 hover:shadow-sm active:scale-95 transition-all border border-transparent hover:border-indigo-100">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <p className="font-bold text-sm text-slate-800 line-clamp-2">{t.title}</p>
+                                                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${t.priority === 'high' ? 'bg-red-400' : 'bg-indigo-400'}`}></div>
+                                            </div>
+                                            <div className="text-[9px] font-black uppercase tracking-widest mt-2 text-slate-400">กำหนดส่ง: {t.dueDate}</div>
+                                        </div>
+                                    ))}
+
+                                    {notifTab === 'group' && groupPendingTasks.length === 0 && (
+                                        <div className="text-center py-10 mt-4">
+                                            <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-3">✓</div>
+                                            <p className="text-slate-400 text-sm font-bold">ไม่มีงานกลุ่มที่ค้างอยู่</p>
+                                        </div>
+                                    )}
+                                    {notifTab === 'group' && groupPendingTasks.map(t => (
+                                        <div key={t.id} onClick={() => { setIsNotifOpen(false); setViewingTask(t); }} className="p-4 bg-amber-50/50 rounded-2xl cursor-pointer hover:bg-amber-100 hover:shadow-sm active:scale-95 transition-all border border-transparent hover:border-amber-200">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <p className="font-bold text-sm text-slate-800 line-clamp-2">{t.title}</p>
+                                                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${t.priority === 'high' ? 'bg-red-400' : 'bg-amber-400'}`}></div>
+                                            </div>
+                                            <div className="text-[9px] font-black uppercase tracking-widest mt-2 text-slate-400">กำหนดส่ง: {t.dueDate}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Task Modal (Create / Edit) */}
                     {isTaskModalOpen && (
                         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-6 bg-slate-900/60 backdrop-blur-sm">
-                            <div className="bg-white w-full max-w-md rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl overflow-hidden animate-in">
-                                <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                            <div className="bg-white w-full max-w-md rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl overflow-hidden animate-in flex flex-col max-h-screen">
+                                <div className="p-6 md:p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50 shrink-0">
                                     <h3 className="text-lg font-black text-slate-800">{editingTask ? '📝 แก้ไขงาน' : '✨ สร้างงานใหม่'}</h3>
-                                    <button onClick={() => setIsTaskModalOpen(false)} className="p-2 hover:bg-white rounded-full text-slate-400 shadow-sm"><Icon name="x" size={20}/></button>
+                                    <button onClick={() => setIsTaskModalOpen(false)} className="p-2 hover:bg-white rounded-full text-slate-400 shadow-sm active:scale-90"><Icon name="x" size={20}/></button>
                                 </div>
-                                <form className="p-8 space-y-5" onSubmit={(e) => {
-                                    e.preventDefault();
-                                    const fd = new FormData(e.target);
-                                    saveTask(Object.fromEntries(fd));
-                                }}>
-                                    <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">ชื่องาน</label><input required name="title" defaultValue={editingTask?.title} placeholder="งานที่ต้องทำ..." className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-sm focus:ring-4 focus:ring-indigo-100 transition-all outline-none" /></div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">ผู้รับผิดชอบ</label><select name="assignee" defaultValue={editingTask?.assignee || profile?.name} className="w-full p-4 bg-slate-50 border-none rounded-xl font-bold text-xs outline-none">{members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}</select></div>
-                                        <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">กำหนดส่ง</label><input name="dueDate" type="date" defaultValue={editingTask?.dueDate || new Date().toISOString().split('T')[0]} className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-xs outline-none" /></div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">สถานะ</label><select name="status" defaultValue={editingTask?.status || 'todo'} className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-xs outline-none"><option value="todo">To Do</option><option value="in-progress">Doing</option><option value="done">Done</option></select></div>
-                                        <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">ความสำคัญ</label><select name="priority" defaultValue={editingTask?.priority || 'medium'} className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-xs outline-none"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
-                                    </div>
-                                    <button className="w-full p-5 btn-primary rounded-[2rem] font-black shadow-xl active:scale-95 transition-all mt-4 uppercase text-xs tracking-widest shadow-indigo-200">บันทึกข้อมูล</button>
-                                </form>
+                                <div className="overflow-y-auto no-scrollbar pb-10">
+                                    <form className="p-6 md:p-8 space-y-5" onSubmit={(e) => {
+                                        e.preventDefault();
+                                        const fd = new FormData(e.target);
+                                        saveTask(Object.fromEntries(fd));
+                                    }}>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">ชื่องาน</label>
+                                            <input required name="title" defaultValue={editingTask?.title} placeholder="งานที่ต้องทำ..." className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-sm focus:ring-4 focus:ring-indigo-100 transition-all outline-none" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">รายละเอียดงาน</label>
+                                            <textarea name="description" defaultValue={editingTask?.description} placeholder="เพิ่มรายละเอียดเกี่ยวกับงาน..." className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-sm focus:ring-4 focus:ring-indigo-100 transition-all outline-none resize-none h-24"></textarea>
+                                        </div>
+                                        
+                                        {/* ส่วนเลือกผู้รับผิดชอบหลายคน (มี UI ติ๊กถูก) */}
+                                        <div className="space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ผู้รับผิดชอบ (กดเลือกได้มากกว่า 1 คน)</label>
+                                            <div className="flex flex-wrap gap-2 pt-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedAssignees(['ทุกคน'])}
+                                                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${selectedAssignees.includes('ทุกคน') ? 'bg-amber-100 text-amber-600 border-amber-200 shadow-sm' : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-100'}`}
+                                                >
+                                                    {selectedAssignees.includes('ทุกคน') ? '✓ ทุกคน (ทำร่วมกัน)' : 'ทุกคน (ทำร่วมกัน)'}
+                                                </button>
+                                                {members.map(m => (
+                                                    <button
+                                                        key={m.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (selectedAssignees.includes('ทุกคน')) {
+                                                                setSelectedAssignees([m.name]);
+                                                            } else {
+                                                                if (selectedAssignees.includes(m.name)) {
+                                                                    setSelectedAssignees(selectedAssignees.filter(a => a !== m.name));
+                                                                } else {
+                                                                    setSelectedAssignees([...selectedAssignees, m.name]);
+                                                                }
+                                                            }
+                                                        }}
+                                                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${selectedAssignees.includes(m.name) && !selectedAssignees.includes('ทุกคน') ? 'bg-indigo-100 text-indigo-600 border-indigo-200 shadow-sm' : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-100'}`}
+                                                    >
+                                                        {selectedAssignees.includes(m.name) && !selectedAssignees.includes('ทุกคน') ? `✓ ${m.name}` : m.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            {selectedAssignees.length === 0 && <p className="text-[10px] text-red-400 font-bold mt-2">* กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน</p>}
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3 pt-2">
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">กำหนดส่ง</label>
+                                                <input name="dueDate" type="date" defaultValue={editingTask?.dueDate || new Date().toISOString().split('T')[0]} className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-xs outline-none" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">ความสำคัญ</label>
+                                                <select name="priority" defaultValue={editingTask?.priority || 'medium'} className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-xs outline-none">
+                                                    <option value="low">Low</option>
+                                                    <option value="medium">Medium</option>
+                                                    <option value="high">High</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">สถานะ</label>
+                                            <select name="status" defaultValue={editingTask?.status || 'todo'} className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-xs outline-none">
+                                                <option value="todo">To Do</option>
+                                                <option value="in-progress">Doing</option>
+                                                <option value="done">Done</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <button disabled={selectedAssignees.length === 0} className={`w-full p-5 rounded-[2rem] font-black shadow-xl active:scale-95 transition-all mt-6 uppercase text-xs tracking-widest ${selectedAssignees.length === 0 ? 'bg-slate-200 text-slate-400' : 'btn-primary shadow-indigo-200'}`}>บันทึกข้อมูล</button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -456,17 +797,34 @@
                     {/* Task View Modal */}
                     {viewingTask && (
                         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-6 bg-slate-900/60 backdrop-blur-sm">
-                            <div className="bg-white w-full max-w-sm rounded-t-[3rem] md:rounded-[3rem] shadow-2xl p-10 relative animate-in">
+                            <div className="bg-white w-full max-w-sm rounded-t-[3rem] md:rounded-[3rem] shadow-2xl p-10 relative animate-in max-h-screen overflow-y-auto no-scrollbar">
                                 <button onClick={() => setViewingTask(null)} className="absolute top-10 right-10 p-3 text-slate-300 active:scale-90"><Icon name="x" size={24}/></button>
                                 <div className={`px-4 py-1 rounded-lg text-[9px] font-black uppercase mb-6 inline-block border ${viewingTask.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>{viewingTask.priority} PRIORITY</div>
-                                <h3 className="text-3xl font-black text-slate-800 mb-8 leading-tight tracking-tight">{viewingTask.title}</h3>
+                                <h3 className="text-3xl font-black text-slate-800 mb-6 leading-tight tracking-tight">{viewingTask.title}</h3>
+                                
+                                {viewingTask.description && (
+                                    <div className="mb-8 p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-3">รายละเอียดงาน</p>
+                                        <p className="text-sm font-bold text-slate-600 whitespace-pre-wrap leading-relaxed">{viewingTask.description}</p>
+                                    </div>
+                                )}
+
                                 <div className="space-y-4 mb-10 text-left">
-                                    <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-2xl"><div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black shadow-lg text-lg uppercase tracking-tighter shadow-indigo-100">{viewingTask.assignee.substring(0,2)}</div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Assignee</p><p className="font-bold text-slate-800 text-lg leading-none mt-2">{viewingTask.assignee}</p></div></div>
-                                    <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100"><div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-indigo-600 shadow-sm"><Icon name="calendar" size={24}/></div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Due Date</p><p className="font-bold text-slate-800 text-lg leading-none mt-2">{viewingTask.dueDate}</p></div></div>
+                                    <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-black shadow-lg text-lg uppercase tracking-tighter shrink-0 ${(viewingTask.assignees || []).includes('ทุกคน') ? 'bg-amber-500 shadow-amber-100' : 'bg-indigo-600 shadow-indigo-100'}`}>
+                                            {(viewingTask.assignees || []).includes('ทุกคน') ? 'ALL' : (viewingTask.assignees && viewingTask.assignees.length > 0 ? viewingTask.assignees[0].substring(0,2) : '?')}
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Assignees</p>
+                                            <p className="font-bold text-slate-800 text-sm leading-snug mt-2">{(viewingTask.assignees || []).join(', ')}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100"><div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-indigo-600 shadow-sm shrink-0"><Icon name="calendar" size={24}/></div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Due Date</p><p className="font-bold text-slate-800 text-lg leading-none mt-2">{viewingTask.dueDate}</p></div></div>
                                 </div>
-                                <div className="flex gap-3">
-                                    <button onClick={() => {if(confirm("ลบงาน?")) db.doc(`teams_v16/${activeTeamId}/tasks/${viewingTask.id}`).delete(); setViewingTask(null);}} className="p-5 bg-red-50 text-red-500 rounded-2xl active:scale-95 transition-all shadow-inner border border-red-100"><Icon name="trash" size={24}/></button>
-                                    <button onClick={() => {setEditingTask(viewingTask); setViewingTask(null); setIsTaskModalOpen(true);}} className="flex-1 p-5 bg-slate-900 text-white rounded-[2.2rem] font-black shadow-2xl active:scale-95 transition-all uppercase text-xs tracking-widest">แก้ไขข้อมูล</button>
+                                <div className="flex gap-3 mt-auto pt-2">
+                                    {/* ปุ่มถังขยะสำหรับลบงาน (ลบได้จริง) */}
+                                    <button onClick={() => deleteTask(viewingTask.id)} className="p-5 bg-red-50 text-red-500 rounded-2xl active:scale-95 transition-all shadow-inner border border-red-100" title="ลบงาน"><Icon name="trash" size={24}/></button>
+                                    <button onClick={() => openEditTask(viewingTask)} className="flex-1 p-5 bg-slate-900 text-white rounded-[2.2rem] font-black shadow-2xl active:scale-95 transition-all uppercase text-xs tracking-widest">แก้ไขข้อมูล</button>
                                 </div>
                             </div>
                         </div>
