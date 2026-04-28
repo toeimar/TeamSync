@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -5,14 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TeamSync Pro - Workspace</title>
     
+    <!-- Global Error Catcher ป้องกันจอขาว -->
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            document.body.innerHTML = '<div style="padding: 20px; color: #dc2626; font-family: sans-serif; background: #fef2f2; height: 100vh;"><h3>⚠️ เกิดข้อผิดพลาดในการโหลดระบบ</h3><p><strong>สาเหตุ:</strong> ' + message + '</p><p>เบราว์เซอร์ของคุณอาจบล็อกการทำงาน หรืออินเทอร์เน็ตมีปัญหา</p></div>';
+        };
+    </script>
+
     <!-- CSS & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Core Libraries -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.2/babel.min.js"></script>
     
     <!-- Firebase Global Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -26,21 +34,32 @@
         .animate-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .active-nav { color: #4f46e5; font-weight: 700; background: rgba(79, 70, 229, 0.05); border-radius: 12px; }
-        input, select, textarea { font-size: 16px !important; }
+        input, select, textarea { font-size: 16px !important; outline: none; }
         .btn-primary { background: #4f46e5; color: white; transition: all 0.2s; }
         .btn-primary:active { transform: scale(0.95); }
         .chart-circle { transition: stroke-dashoffset 1s ease-in-out; }
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root">
+        <!-- แสดงข้อความนี้ระหว่างรอ React ทำงาน ป้องกันหน้าจอขาว -->
+        <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Anuphan', sans-serif; color: #4f46e5; font-weight: bold; flex-direction: column; gap: 10px;">
+            <div style="width: 40px; height: 40px; border: 4px solid #e0e7ff; border-top: 4px solid #4f46e5; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            กำลังโหลดระบบ TeamSync...
+        </div>
+        <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+    </div>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
+        // --- Safe Local Storage ---
+        const safeGetLocal = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
+        const safeSetLocal = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
+
         // --- Telegram & Firebase Config ---
         const TG_TOKEN = "8297881671:AAGcSq319AVyjvagyxBDV1STtdRV5WPILKs";
-        const TG_CHAT_ID = "-1003907894437";
+        const DEFAULT_TG_CHAT_ID = "-1003907894437";
 
         const firebaseConfig = {
             apiKey: "AIzaSyA6pLMExFN2d7oVQKLldcB_ahB5-o4zw_E",
@@ -54,6 +73,18 @@
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
+
+        // --- Error Boundary (ป้องกันแอปจอขาวเวลาพัง) ---
+        class ErrorBoundary extends React.Component {
+            constructor(props) { super(props); this.state = { hasError: false, errorInfo: null }; }
+            static getDerivedStateFromError(error) { return { hasError: true, errorInfo: error }; }
+            render() {
+                if (this.state.hasError) {
+                    return <div className="p-10 text-red-600 font-bold bg-red-50 h-screen">เกิดข้อผิดพลาดภายในแอป: {this.state.errorInfo?.message}</div>;
+                }
+                return this.props.children;
+            }
+        }
 
         // --- Icons Mapping ---
         const Icon = ({ name, size = 18, className = "" }) => {
@@ -81,14 +112,14 @@
             const [user, setUser] = useState(null);
             const [profile, setProfile] = useState(null);
             const [loading, setLoading] = useState(true);
-            const [activeTeamId, setActiveTeamId] = useState(localStorage.getItem('ts_v16_active'));
-            const [screen, setScreen] = useState('loading'); // auth, setup, hub, workspace
+            const [activeTeamId, setActiveTeamId] = useState(safeGetLocal('ts_v16_active'));
+            const [screen, setScreen] = useState('loading'); 
             const [view, setView] = useState('dashboard');
             
             const [tasks, setTasks] = useState([]);
             const [members, setMembers] = useState([]);
             
-            // UI UI States
+            // UI States
             const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
             const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
             const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -99,15 +130,21 @@
             const [selectedAssignees, setSelectedAssignees] = useState([]);
 
             // --- Telegram Notifier ---
-            const notifyTG = async (title, message) => {
+            const notifyTG = async (title, message, targetChatIds = []) => {
+                const ids = [DEFAULT_TG_CHAT_ID, ...targetChatIds];
+                const uniqueIds = [...new Set(ids.filter(id => id && id.trim() !== ""))];
+
                 const text = `<b>${title}</b>\n━━━━━━━━━━━━━━\n${message}\n━━━━━━━━━━━━━━\n<i>TeamSync Pro Real-time</i>`;
-                try {
-                    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ chat_id: TG_CHAT_ID, text, parse_mode: 'HTML' })
-                    });
-                } catch (e) { console.error("Telegram error:", e); }
+                
+                for (const chatId of uniqueIds) {
+                    try {
+                        await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' })
+                        });
+                    } catch (e) { console.error("Telegram error:", e); }
+                }
             };
 
             // 1. Authentication Sync
@@ -145,13 +182,16 @@
                     setMembers(s.docs.map(d => ({id: d.id, ...d.data()})));
                 }, (err) => console.error("Members Error", err));
 
-                // Update activity
+                // Sync profile data to team members list
                 db.collection(`${path}/members`).doc(user.uid).set({
-                    name: profile?.name || "User", email: user.email, lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+                    name: profile?.name || "User", 
+                    email: user.email, 
+                    tgChatId: profile?.tgChatId || "",
+                    lastSeen: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
 
                 return () => { unsubTasks(); unsubMembers(); };
-            }, [activeTeamId, screen, user, profile?.name]);
+            }, [activeTeamId, screen, user, profile]);
 
             // --- Logic Handlers ---
             const handleAuth = async (e) => {
@@ -159,9 +199,13 @@
                 const em = e.target.email.value;
                 const pw = e.target.password.value;
                 try {
+                    await auth.setPersistence('local'); // Fixed crash issue string
                     await auth.signInWithEmailAndPassword(em, pw);
                 } catch (err) {
-                    try { await auth.createUserWithEmailAndPassword(em, pw); }
+                    try { 
+                        await auth.setPersistence('local');
+                        await auth.createUserWithEmailAndPassword(em, pw); 
+                    }
                     catch (e2) { alert("Error: " + e2.message); }
                 }
             };
@@ -169,11 +213,13 @@
             const handleProfileSave = async (e) => {
                 e.preventDefault();
                 const name = e.target.username.value.trim();
+                const tgChatId = e.target.tgChatId.value.trim();
                 if (name && user) {
-                    const data = { name, email: user.email, teams: profile?.teams || [] };
+                    const data = { name, tgChatId, email: user.email, teams: profile?.teams || [] };
                     await db.collection('users_profile_v16').doc(user.uid).set(data, { merge: true });
                     setProfile(data);
-                    setScreen('hub');
+                    setIsEditProfileOpen(false);
+                    if (screen === 'setup') setScreen('hub');
                 }
             };
 
@@ -185,7 +231,7 @@
                     await db.collection('users_profile_v16').doc(user.uid).update({ teams: updated });
                     setProfile({ ...profile, teams: updated });
                     setActiveTeamId(tid);
-                    localStorage.setItem('ts_v16_active', tid);
+                    safeSetLocal('ts_v16_active', tid);
                     setScreen('workspace');
                     notifyTG("👋 สมาชิกใหม่เข้าร่วมทีม!", `👤 <b>${profile.name}</b> เข้าร่วมทีม <b>#${tid}</b>`);
                 }
@@ -198,18 +244,26 @@
                     title: fd.get('title'),
                     description: fd.get('description') || "",
                     dueDate: fd.get('dueDate'),
-                    priority: fd.get('priority'),
-                    status: fd.get('status'),
+                    priority: fd.get('priority') || 'medium',
+                    status: fd.get('status') || 'todo',
                     assignees: selectedAssignees.length > 0 ? selectedAssignees : [profile?.name || "User"]
                 };
+
+                let personalChatIds = [];
+                if (!taskData.assignees.includes('ทุกคน')) {
+                    taskData.assignees.forEach(name => {
+                        const m = members.find(member => member.name === name);
+                        if (m && m.tgChatId) personalChatIds.push(m.tgChatId);
+                    });
+                }
 
                 const path = `teams_v16/${activeTeamId}/tasks`;
                 if (editingTask) {
                     await db.collection(path).doc(editingTask.id).update(taskData);
-                    notifyTG("📝 อัปเดตงาน", `📌 <b>งาน:</b> ${taskData.title}\n👥 <b>โดย:</b> ${profile.name}\n📊 <b>สถานะ:</b> ${taskData.status.toUpperCase()}`);
+                    notifyTG("📝 อัปเดตงาน", `📌 <b>งาน:</b> ${taskData.title}\n👥 <b>โดย:</b> ${profile.name}\n📊 <b>สถานะ:</b> ${taskData.status.toUpperCase()}`, personalChatIds);
                 } else {
                     await db.collection(path).add({ ...taskData, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-                    notifyTG("🚀 มีงานใหม่!", `📌 <b>งาน:</b> ${taskData.title}\n👥 <b>มอบหมาย:</b> ${taskData.assignees.join(', ')}\n📅 <b>กำหนด:</b> ${taskData.dueDate}`);
+                    notifyTG("🚀 มีงานใหม่!", `📌 <b>งาน:</b> ${taskData.title}\n👥 <b>มอบหมาย:</b> ${taskData.assignees.join(', ')}\n📅 <b>กำหนด:</b> ${taskData.dueDate}`, personalChatIds);
                 }
                 setIsTaskModalOpen(false);
                 setEditingTask(null);
@@ -219,7 +273,15 @@
                 if (confirm("ยืนยันลบงานนี้?")) {
                     await db.collection(`teams_v16/${activeTeamId}/tasks`).doc(task.id).delete();
                     setViewingTask(null);
-                    notifyTG("🗑️ งานถูกลบ", `❌ <b>งาน:</b> ${task.title}\n👤 ลบโดย: ${profile.name}`);
+                    
+                    let personalChatIds = [];
+                    if (task.assignees && !task.assignees.includes('ทุกคน')) {
+                        task.assignees.forEach(name => {
+                            const m = members.find(member => member.name === name);
+                            if (m && m.tgChatId) personalChatIds.push(m.tgChatId);
+                        });
+                    }
+                    notifyTG("🗑️ งานถูกลบ", `❌ <b>งาน:</b> ${task.title}\n👤 ลบโดย: ${profile.name}`, personalChatIds);
                 }
             };
 
@@ -250,10 +312,9 @@
             const groupShared = (tasks || []).filter(t => t.assignees?.includes('ทุกคน'));
             const pendingCount = (tasks || []).filter(t => t.status !== 'done' && (t.assignees?.includes(profile?.name) || t.assignees?.includes('ทุกคน'))).length;
 
-            if (loading) return <div className="h-screen flex items-center justify-center font-bold text-indigo-600 animate-pulse text-xl">🚀 TeamSync Linking...</div>;
+            if (loading) return <div className="h-screen flex items-center justify-center font-bold text-indigo-600 text-xl"><div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mr-3"></div> TeamSync Linking...</div>;
 
             // --- Rendering Screens ---
-
             if (screen === 'auth') return (
                 <div className="h-screen flex items-center justify-center p-6 bg-slate-900">
                     <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm text-center animate-in">
@@ -273,19 +334,43 @@
                     <div className="bg-white p-10 rounded-[3rem] w-full max-w-sm text-center animate-in">
                         <h1 className="text-2xl font-black mb-6 text-indigo-600">ตั้งค่าโปรไฟล์</h1>
                         <form onSubmit={handleProfileSave} className="space-y-4">
-                            <input name="username" required placeholder="ชื่อเล่นหรือชื่อจริง..." className="w-full p-4 bg-slate-50 rounded-2xl text-center font-bold text-lg" />
+                            <input name="username" required defaultValue={profile?.name || ""} placeholder="ชื่อเล่นหรือชื่อจริง..." className="w-full p-4 bg-slate-50 rounded-2xl text-center font-bold text-lg outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic block text-left px-2">CHAT ID (OPTIONAL)</label>
+                                <input name="tgChatId" defaultValue={profile?.tgChatId || ""} className="w-full p-4 bg-slate-50 rounded-2xl text-center font-bold text-sm text-slate-500 outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
+                            </div>
                             <button className="w-full p-4 btn-primary rounded-2xl font-black shadow-xl uppercase text-xs">เริ่มต้นใช้งาน</button>
                         </form>
                     </div>
                 </div>
             );
 
+            const EditProfileModal = () => isEditProfileOpen ? (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
+                    <div className="bg-white p-8 rounded-[3rem] w-full max-w-sm text-center animate-in relative shadow-2xl">
+                        <button onClick={() => setIsEditProfileOpen(false)} className="absolute top-6 right-6 text-slate-400 active:scale-90"><Icon name="x" size={20}/></button>
+                        <h2 className="text-xl font-black mb-6 text-indigo-600">แก้ไขโปรไฟล์ & แจ้งเตือน</h2>
+                        <form onSubmit={handleProfileSave} className="space-y-4">
+                            <input name="username" required defaultValue={profile?.name || ""} placeholder="ชื่อเล่นหรือชื่อจริง..." className="w-full p-4 bg-slate-50 rounded-2xl text-center font-bold text-lg outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic block text-left px-2">CHAT ID (OPTIONAL)</label>
+                                <input name="tgChatId" defaultValue={profile?.tgChatId || ""} className="w-full p-4 bg-slate-50 rounded-2xl text-center font-bold text-sm text-slate-500 outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
+                            </div>
+                            <button className="w-full p-4 btn-primary rounded-2xl font-black shadow-xl uppercase text-xs">บันทึกข้อมูล</button>
+                        </form>
+                    </div>
+                </div>
+            ) : null;
+
             if (screen === 'hub') return (
                 <div className="min-h-screen p-5 bg-slate-50 animate-in max-w-md mx-auto">
                     <header className="flex justify-between items-center mb-10">
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl uppercase">{profile?.name?.substring(0,2)}</div>
-                            <h1 className="text-xl font-black italic">สวัสดี, {profile?.name}</h1>
+                        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setIsEditProfileOpen(true)}>
+                            <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl uppercase group-hover:scale-105 transition-all">{(profile?.name || "U").substring(0,2)}</div>
+                            <div>
+                                <h1 className="text-xl font-black italic group-hover:text-indigo-600 transition-all">สวัสดี, {profile?.name}</h1>
+                                <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold flex items-center gap-1"><Icon name="edit" size={10}/> แก้ไขโปรไฟล์ / แจ้งเตือน</p>
+                            </div>
                         </div>
                         <button onClick={() => auth.signOut()} className="p-2 text-red-500 bg-white rounded-xl shadow-sm border border-red-50"><Icon name="logout" size={18}/></button>
                     </header>
@@ -299,19 +384,18 @@
                     <div className="space-y-3">
                         <h2 className="text-[10px] font-black px-4 text-slate-400 uppercase tracking-widest italic">ทีมที่สังกัด ({profile?.teams?.length || 0})</h2>
                         {profile?.teams?.map(tid => (
-                            <div key={tid} onClick={() => { setActiveTeamId(tid); localStorage.setItem('ts_v16_active', tid); setScreen('workspace'); setView('dashboard'); }} className="bg-white p-5 rounded-2xl shadow-sm border border-transparent hover:border-indigo-100 active:scale-95 transition-all flex justify-between items-center group cursor-pointer">
+                            <div key={tid} onClick={() => { setActiveTeamId(tid); safeSetLocal('ts_v16_active', tid); setScreen('workspace'); setView('dashboard'); }} className="bg-white p-5 rounded-2xl shadow-sm border border-transparent hover:border-indigo-100 active:scale-95 transition-all flex justify-between items-center group cursor-pointer">
                                 <div className="flex items-center gap-4"><div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-black group-hover:bg-indigo-600 group-hover:text-white transition-all">#</div><p className="font-black text-lg">{tid}</p></div>
                                 <Icon name="chevronRight" className="text-slate-200" />
                             </div>
                         ))}
                     </div>
+                    <EditProfileModal />
                 </div>
             );
 
-            // --- WORKSPACE VIEW ---
             return (
                 <div className="min-h-screen pb-24 md:pl-64 md:pb-0 animate-in">
-                    {/* Desktop Sidebar */}
                     <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 bg-white border-r p-8 z-30">
                         <div className="flex items-center gap-2 mb-10"><div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-black">T</div><span className="font-black text-xl tracking-tight italic">TeamSync</span></div>
                         <nav className="flex-1 space-y-1">
@@ -324,7 +408,6 @@
                         <button onClick={() => setScreen('hub')} className="mt-auto p-4 bg-slate-900 rounded-xl text-white text-[10px] font-black uppercase text-center tracking-[0.2em] shadow-lg active:scale-95 transition-all">สลับทีมงาน</button>
                     </aside>
 
-                    {/* Mobile Navigation */}
                     <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-md border-t flex justify-around p-2 pb-safe z-40 shadow-xl">
                         {['dashboard', 'mytasks', 'board', 'members'].map(m => (
                             <button key={m} onClick={() => setView(m)} className={`p-3 rounded-xl transition-all ${view === m ? 'text-indigo-600 bg-indigo-50' : 'text-slate-300'}`}>
@@ -336,7 +419,7 @@
 
                     <main className="p-4 md:p-12 max-w-4xl mx-auto space-y-6 pb-12">
                         <header className="flex justify-between items-start mb-2">
-                            <div><h2 className="text-2xl font-black leading-none flex items-center gap-3 italic">คุณ{profile?.name}</h2><p className="text-indigo-500 font-bold text-[10px] uppercase tracking-widest mt-2">Team: #{activeTeamId} • {view}</p></div>
+                            <div><h2 className="text-2xl font-black leading-none flex items-center gap-3 italic cursor-pointer hover:text-indigo-600 transition-all" onClick={() => setIsEditProfileOpen(true)}>คุณ{profile?.name} <Icon name="edit" size={14} className="text-slate-300 hover:text-indigo-400"/></h2><p className="text-indigo-500 font-bold text-[10px] uppercase tracking-widest mt-2">Team: #{activeTeamId} • {view}</p></div>
                             <div className="flex gap-2">
                                 <button onClick={() => setIsNotifOpen(true)} className="relative w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center border border-slate-100 active:scale-90 transition-all">
                                     <Icon name="bell" size={20} className="text-slate-600"/>
@@ -346,7 +429,6 @@
                             </div>
                         </header>
 
-                        {/* Views */}
                         {view === 'dashboard' && (
                             <div className="space-y-6">
                                 <div className="grid grid-cols-2 gap-3">
@@ -377,7 +459,7 @@
                                 <div className="space-y-3 mb-10">
                                     {myPersonal.map(t => (
                                         <div key={t.id} onClick={() => setViewingTask(t)} className="bg-slate-50 p-5 rounded-2xl flex justify-between items-center cursor-pointer hover:bg-indigo-50 border border-transparent">
-                                            <div><h4 className={`font-bold text-sm ${t.status === 'done' ? 'line-through text-slate-400' : ''}`}>{t.title}</h4><p className="text-[9px] text-slate-400 font-bold mt-1 uppercase italic">{t.dueDate} • {t.priority}</p></div>
+                                            <div><h4 className={`font-bold text-sm ${t.status === 'done' ? 'line-through text-slate-400' : ''}`}>{t.title}</h4><p className="text-[9px] text-slate-400 font-bold mt-1 uppercase italic">{t.dueDate || 'N/A'} • {t.priority || 'Medium'}</p></div>
                                             <Icon name="chevronRight" className="text-slate-200" />
                                         </div>
                                     ))}
@@ -402,13 +484,13 @@
                                     <div key={st} className="min-w-[280px] flex flex-col bg-slate-100/50 rounded-[2.5rem] p-4 border">
                                         <div className="flex justify-between items-center mb-5 px-3 italic font-black text-slate-400 text-[10px] uppercase tracking-[0.2em]">{st}</div>
                                         <div className="space-y-3 overflow-y-auto pr-1 flex-1">
-                                            {tasks.filter(t => t.status === st).map(task => (
+                                            {tasks.filter(t => (t.status || 'todo') === st).map(task => (
                                                 <div key={task.id} onClick={() => setViewingTask(task)} className="bg-white p-5 rounded-2xl shadow-sm border border-white hover:border-indigo-100 transition-all cursor-pointer">
-                                                    <div className={`text-[8px] font-black px-2 py-0.5 rounded mb-3 inline-block border ${task.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-400'}`}>{task.priority.toUpperCase()}</div>
+                                                    <div className={`text-[8px] font-black px-2 py-0.5 rounded mb-3 inline-block border ${task.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-400'}`}>{(task.priority || 'MEDIUM').toUpperCase()}</div>
                                                     <h4 className="font-bold text-sm leading-snug line-clamp-2 text-slate-800">{task.title}</h4>
                                                     <div className="mt-4 flex justify-between items-center pt-3 border-t border-slate-50 text-[9px] font-black text-slate-300 italic">
                                                         <span>{task.assignees?.join(', ')}</span>
-                                                        <span>{task.dueDate.split('-').slice(1).join('/')}</span>
+                                                        <span>{task.dueDate ? task.dueDate.split('-').slice(1).join('/') : ''}</span>
                                                     </div>
                                                 </div>
                                             ))}
@@ -477,7 +559,7 @@
                                 {members.map(m => (
                                     <div key={m.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-50 flex justify-between items-center group animate-in">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center font-black text-lg uppercase shadow-inner">{m.name.substring(0,2)}</div>
+                                            <div className="w-12 h-12 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center font-black text-lg uppercase shadow-inner">{(m.name || "U").substring(0,2)}</div>
                                             <div><h4 className="font-black text-sm text-slate-800 leading-none">{m.name}</h4><p className="text-[10px] font-bold text-slate-300 mt-2 uppercase tracking-widest italic">{m.id === user.uid ? 'คุณ (Admin)' : 'Member'}</p></div>
                                         </div>
                                         <button onClick={() => removeMember(m)} className="p-2 text-slate-300 hover:text-red-500 active:scale-90 transition-all"><Icon name={m.id === user.uid ? "logout" : "trash"} size={16} /></button>
@@ -487,7 +569,6 @@
                         )}
                     </main>
 
-                    {/* Notification Overlay */}
                     {isNotifOpen && (
                         <div className="fixed inset-0 z-[150] flex items-start justify-center p-4 bg-slate-900/60 backdrop-blur-sm pt-20">
                             <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-6 relative animate-in flex flex-col max-h-[80vh]">
@@ -510,7 +591,6 @@
                         </div>
                     )}
 
-                    {/* Task Modal (Create/Edit) */}
                     {isTaskModalOpen && (
                         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-6 bg-slate-900/60 backdrop-blur-sm">
                             <div className="bg-white w-full max-w-md rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl overflow-hidden animate-in flex flex-col max-h-[95vh]">
@@ -569,7 +649,7 @@
                         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-6 bg-slate-900/60 backdrop-blur-sm">
                             <div className="bg-white w-full max-w-sm rounded-t-[3rem] md:rounded-[3rem] shadow-2xl p-10 relative animate-in max-h-[85vh] overflow-y-auto no-scrollbar flex flex-col">
                                 <button onClick={() => setViewingTask(null)} className="absolute top-10 right-10 p-2 text-slate-300 active:scale-90"><Icon name="x" size={24}/></button>
-                                <div className={`px-4 py-1 rounded-lg text-[9px] font-black uppercase mb-6 inline-block border italic self-start ${viewingTask.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-400'}`}>{viewingTask.priority} PRIORITY</div>
+                                <div className={`px-4 py-1 rounded-lg text-[9px] font-black uppercase mb-6 inline-block border italic self-start ${(viewingTask.priority || 'medium') === 'high' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-400'}`}>{(viewingTask.priority || 'medium').toUpperCase()} PRIORITY</div>
                                 <h3 className="text-3xl font-black text-slate-800 mb-6 leading-tight tracking-tight italic">{viewingTask.title}</h3>
                                 <p className="text-sm font-bold text-slate-500 mb-8 whitespace-pre-wrap leading-relaxed">{viewingTask.description || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
                                 <div className="space-y-4 mb-10 text-left">
@@ -583,12 +663,14 @@
                             </div>
                         </div>
                     )}
+                    
+                    <EditProfileModal />
                 </div>
             );
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        root.render(<ErrorBoundary><App /></ErrorBoundary>);
     </script>
 </body>
 </html>
