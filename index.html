@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -127,6 +128,7 @@
             const [viewingTask, setViewingTask] = useState(null);
             const [calDate, setCalDate] = useState(new Date());
             const [selectedAssignees, setSelectedAssignees] = useState([]);
+            const [testStatus, setTestStatus] = useState('ทดสอบแจ้งเตือน');
 
             // --- Telegram Notifier ---
             const notifyTG = async (title, message, targetChatIds = []) => {
@@ -144,6 +146,18 @@
                         });
                     } catch (e) { console.error("Telegram error:", e); }
                 }
+            };
+
+            // Test Button Logic
+            const handleTestNotif = async () => {
+                const inputEl = document.querySelector('input[name="tgChatId"]');
+                const targetId = inputEl?.value?.trim() || DEFAULT_TG_CHAT_ID;
+                
+                setTestStatus('กำลังส่ง...');
+                await notifyTG("🔔 ทดสอบระบบแจ้งเตือน", "การเชื่อมต่อ Telegram ของคุณทำงานได้ปกติ!", [targetId]);
+                setTestStatus('✅ ส่งแล้ว');
+                
+                setTimeout(() => setTestStatus('ทดสอบแจ้งเตือน'), 3000);
             };
 
             // 1. Authentication Sync
@@ -336,9 +350,14 @@
                             <input name="username" required defaultValue={profile?.name || ""} placeholder="ชื่อเล่นหรือชื่อจริง..." className="w-full p-4 bg-slate-50 rounded-2xl text-center font-bold text-lg outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic block text-left px-2">CHAT ID (OPTIONAL)</label>
-                                <input name="tgChatId" defaultValue={profile?.tgChatId || ""} className="w-full p-4 bg-slate-50 rounded-2xl text-center font-bold text-sm text-slate-500 outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
+                                <div className="flex gap-2">
+                                    <input name="tgChatId" defaultValue={profile?.tgChatId || ""} className="w-full p-4 bg-slate-50 rounded-2xl text-center font-bold text-sm text-slate-500 outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
+                                    <button type="button" onClick={handleTestNotif} className="px-4 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-[10px] active:scale-95 transition-all whitespace-nowrap hover:bg-indigo-100 border border-indigo-100">
+                                        {testStatus}
+                                    </button>
+                                </div>
                             </div>
-                            <button className="w-full p-4 btn-primary rounded-2xl font-black shadow-xl uppercase text-xs">เริ่มต้นใช้งาน</button>
+                            <button className="w-full p-4 btn-primary rounded-2xl font-black shadow-xl uppercase text-xs mt-2">เริ่มต้นใช้งาน</button>
                         </form>
                     </div>
                 </div>
@@ -347,15 +366,20 @@
             const EditProfileModal = () => isEditProfileOpen ? (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
                     <div className="bg-white p-8 rounded-[3rem] w-full max-w-sm text-center animate-in relative shadow-2xl">
-                        <button onClick={() => setIsEditProfileOpen(false)} className="absolute top-6 right-6 text-slate-400 active:scale-90"><Icon name="x" size={20}/></button>
+                        <button type="button" onClick={() => setIsEditProfileOpen(false)} className="absolute top-6 right-6 text-slate-400 active:scale-90"><Icon name="x" size={20}/></button>
                         <h2 className="text-xl font-black mb-6 text-indigo-600">แก้ไขโปรไฟล์ & แจ้งเตือน</h2>
                         <form onSubmit={handleProfileSave} className="space-y-4">
                             <input name="username" required defaultValue={profile?.name || ""} placeholder="ชื่อเล่นหรือชื่อจริง..." className="w-full p-4 bg-slate-50 rounded-2xl text-center font-bold text-lg outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic block text-left px-2">CHAT ID (OPTIONAL)</label>
-                                <input name="tgChatId" defaultValue={profile?.tgChatId || ""} className="w-full p-4 bg-slate-50 rounded-2xl text-center font-bold text-sm text-slate-500 outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
+                                <div className="flex gap-2">
+                                    <input name="tgChatId" defaultValue={profile?.tgChatId || ""} className="w-full p-4 bg-slate-50 rounded-2xl text-center font-bold text-sm text-slate-500 outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
+                                    <button type="button" onClick={handleTestNotif} className="px-4 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-[10px] active:scale-95 transition-all whitespace-nowrap hover:bg-indigo-100 border border-indigo-100">
+                                        {testStatus}
+                                    </button>
+                                </div>
                             </div>
-                            <button className="w-full p-4 btn-primary rounded-2xl font-black shadow-xl uppercase text-xs">บันทึกข้อมูล</button>
+                            <button className="w-full p-4 btn-primary rounded-2xl font-black shadow-xl uppercase text-xs mt-2">บันทึกข้อมูล</button>
                         </form>
                     </div>
                 </div>
