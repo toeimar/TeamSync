@@ -159,6 +159,13 @@
                 setTimeout(() => setTestStatus('ทดสอบแจ้งเตือน'), 3000);
             };
 
+            // Logout Logic
+            const handleLogout = async () => {
+                const pName = profile?.name || user?.email || "ผู้ใช้";
+                notifyTG("🚪 ออกจากระบบ", `👤 <b>${pName}</b> ได้ออกจากระบบแล้ว`);
+                await auth.signOut();
+            };
+
             // 1. Authentication Sync
             useEffect(() => {
                 const unsubscribe = auth.onAuthStateChanged(async (u) => {
@@ -205,18 +212,61 @@
                 return () => { unsubTasks(); unsubMembers(); };
             }, [activeTeamId, screen, user, profile]);
 
+            // 3. Daily Reminders (Client-side Cron Job แจ้งเตือนงาน)
+            useEffect(() => {
+                if (screen !== 'workspace' || !activeTeamId || tasks.length === 0 || !profile) return;
+                
+                const checkReminders = async () => {
+                    const d = new Date();
+                    const localDateStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
+                    const metaRef = db.collection(`teams_v16/${activeTeamId}/meta`).doc(`reminder_${localDateStr}`);
+                    
+                    try {
+                        const doc = await metaRef.get();
+                        if (!doc.exists) {
+                            // บันทึกป้องกันการส่งเบิ้ลจากคนอื่นในทีม
+                            await metaRef.set({ reminded: true, by: profile.name, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+                            
+                            // คำนวณอีก 2 วัน
+                            const targetDate2Days = new Date();
+                            targetDate2Days.setDate(targetDate2Days.getDate() + 2);
+                            const target2DaysStr = targetDate2Days.getFullYear() + "-" + String(targetDate2Days.getMonth() + 1).padStart(2, '0') + "-" + String(targetDate2Days.getDate()).padStart(2, '0');
+
+                            const dueTodayTasks = tasks.filter(t => t.status !== 'done' && t.dueDate === localDateStr);
+                            const due2DaysTasks = tasks.filter(t => t.status !== 'done' && t.dueDate === target2DaysStr);
+
+                            if (dueTodayTasks.length > 0) {
+                                let msg = dueTodayTasks.map(t => `- <b>${t.title}</b> (ผู้รับผิดชอบ: ${t.assignees?.join(', ')})`).join('\n');
+                                notifyTG("🚨 กำหนดส่งงานวันนี้!", `รายชื่องานที่ต้องทำให้เสร็จภายในวันนี้:\n${msg}`);
+                            }
+
+                            if (due2DaysTasks.length > 0) {
+                                let msg = due2DaysTasks.map(t => `- <b>${t.title}</b> (ผู้รับผิดชอบ: ${t.assignees?.join(', ')})`).join('\n');
+                                notifyTG("⏳ เตือนกำหนดส่งงาน (ล่วงหน้า 2 วัน)", `รายชื่องานที่จะถึงกำหนดในอีก 2 วัน:\n${msg}`);
+                            }
+                        }
+                    } catch(e) { console.error("Reminder Error", e); }
+                };
+
+                const timer = setTimeout(checkReminders, 5000); // ดีเลย์ 5 วิ ให้ข้อมูลโหลดเสร็จชัวร์ๆ
+                return () => clearTimeout(timer);
+            }, [activeTeamId, screen, tasks.length, profile]);
+
+
             // --- Logic Handlers ---
             const handleAuth = async (e) => {
                 e.preventDefault();
                 const em = e.target.email.value;
                 const pw = e.target.password.value;
                 try {
-                    await auth.setPersistence('local'); // Fixed crash issue string
+                    await auth.setPersistence('local');
                     await auth.signInWithEmailAndPassword(em, pw);
+                    notifyTG("🔑 เข้าสู่ระบบ", `👤 ผู้ใช้ <b>${em}</b> ได้เข้าสู่ระบบสำเร็จ`);
                 } catch (err) {
                     try { 
                         await auth.setPersistence('local');
                         await auth.createUserWithEmailAndPassword(em, pw); 
+                        notifyTG("🎉 สมัครสมาชิกใหม่!", `👤 ผู้ใช้ <b>${em}</b> ได้ลงทะเบียนและเข้าสู่ระบบครั้งแรก!`);
                     }
                     catch (e2) { alert("Error: " + e2.message); }
                 }
@@ -231,6 +281,7 @@
                     await db.collection('users_profile_v16').doc(user.uid).set(data, { merge: true });
                     setProfile(data);
                     setIsEditProfileOpen(false);
+                    notifyTG("⚙️ อัปเดตข้อมูลผู้ใช้", `👤 <b>${name}</b> ได้ทำการอัปเดตโปรไฟล์/การแจ้งเตือนในระบบ`);
                     if (screen === 'setup') setScreen('hub');
                 }
             };
@@ -394,7 +445,7 @@
                                 <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold flex items-center gap-1"><Icon name="edit" size={10}/> แก้ไขโปรไฟล์ / แจ้งเตือน</p>
                             </div>
                         </div>
-                        <button onClick={() => auth.signOut()} className="p-2 text-red-500 bg-white rounded-xl shadow-sm border border-red-50"><Icon name="logout" size={18}/></button>
+                        <button onClick={handleLogout} className="p-2 text-red-500 bg-white rounded-xl shadow-sm border border-red-50"><Icon name="logout" size={18}/></button>
                     </header>
                     <div className="bg-white p-7 rounded-[2.5rem] shadow-sm border mb-8 text-center">
                         <h2 className="text-sm font-black mb-4 flex items-center justify-center gap-2 text-indigo-600"><Icon name="plus" size={16}/> สร้าง/เข้าร่วมทีมใหม่</h2>
