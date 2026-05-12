@@ -5,28 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TeamSync Pro - Workspace</title>
     
-    <!-- Global Error Catcher ป้องกันจอขาว -->
     <script>
         window.onerror = function(message, source, lineno, colno, error) {
             document.body.innerHTML = '<div style="padding: 20px; color: #dc2626; font-family: sans-serif; background: #fef2f2; height: 100vh;"><h3>⚠️ เกิดข้อผิดพลาดในการโหลดระบบ</h3><p><strong>สาเหตุ:</strong> ' + message + '</p><p>เบราว์เซอร์ของคุณอาจบล็อกการทำงาน หรืออินเทอร์เน็ตมีปัญหา</p></div>';
         };
     </script>
 
-    <!-- CSS & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Core Libraries -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7.23.2/babel.min.js"></script>
     
-    <!-- Firebase Global Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
     <style>
+        :root {
+            --priority-high: #ef4444;
+            --priority-high-bg: #fef2f2;
+            --priority-high-border: #fecaca;
+            --priority-medium: #f59e0b;
+            --priority-medium-bg: #fffbeb;
+            --priority-medium-border: #fde68a;
+            --priority-low: #10b981;
+            --priority-low-bg: #ecfdf5;
+            --priority-low-border: #a7f3d0;
+            --due-today: #ef4444;
+            --due-soon: #f59e0b;
+            --due-normal: #4f46e5;
+            --due-overdue: #7c3aed;
+        }
+
         body { font-family: 'Anuphan', sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; -webkit-tap-highlight-color: transparent; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
@@ -37,11 +49,50 @@
         .btn-primary { background: #4f46e5; color: white; transition: all 0.2s; }
         .btn-primary:active { transform: scale(0.95); }
         .chart-circle { transition: stroke-dashoffset 1s ease-in-out; }
+
+        /* Priority styles */
+        .task-high { border-left: 4px solid var(--priority-high) !important; background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%) !important; }
+        .task-medium { border-left: 4px solid var(--priority-medium) !important; background: linear-gradient(135deg, #fffdf5 0%, #ffffff 100%) !important; }
+        .task-low { border-left: 4px solid var(--priority-low) !important; background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%) !important; }
+
+        /* Due date urgency */
+        .due-overdue { background: linear-gradient(135deg, #fdf2f8 0%, #fef2f2 100%) !important; border-color: #f0abfc !important; }
+        .due-today { background: linear-gradient(135deg, #fff1f2 0%, #fef2f2 100%) !important; }
+        .due-soon { background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%) !important; }
+
+        /* Calendar day colors by urgency */
+        .cal-overdue { background: #fee2e2 !important; color: #ef4444 !important; font-weight: 900; }
+        .cal-today-task { background: #fef9c3 !important; }
+        .cal-soon-task { background: #e0e7ff !important; }
+
+        @keyframes pulse-border { 0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.3); } 50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); } }
+        .urgent-pulse { animation: pulse-border 2s infinite; }
+
+        /* Gradient header backgrounds by time of day */
+        .morning-bg { background: linear-gradient(135deg, #fef9c3 0%, #fde68a 30%, #fed7aa 100%); }
+        .afternoon-bg { background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 30%, #ddd6fe 100%); }
+        .evening-bg { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%); }
+        .night-bg { background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #1e293b 100%); }
+
+        /* Status badge */
+        .badge-todo { background:#e0e7ff; color:#4f46e5; }
+        .badge-inprogress { background:#fef9c3; color:#d97706; }
+        .badge-done { background:#dcfce7; color:#16a34a; }
+
+        /* Smooth card hover */
+        .task-card { transition: all 0.2s cubic-bezier(0.4,0,0.2,1); }
+        .task-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(79,70,229,0.12); }
+        .task-card:active { transform: scale(0.98); }
+        
+        /* Custom pastel backgrounds for Monthly Journal */
+        .bg-pastel-green { background-color: #f1f8e9; border: 1px solid #dcedc8; }
+        .bg-pastel-brown { background-color: #efebe9; border: 1px solid #d7ccc8; }
+        .bg-pastel-blue { background-color: #e0f7fa; border: 1px solid #b2ebf2; }
+        .bg-pastel-pink { background-color: #fce4ec; border: 1px solid #f8bbd0; }
     </style>
 </head>
 <body>
     <div id="root">
-        <!-- แสดงข้อความนี้ระหว่างรอ React ทำงาน ป้องกันหน้าจอขาว -->
         <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Anuphan', sans-serif; color: #4f46e5; font-weight: bold; flex-direction: column; gap: 10px;">
             <div style="width: 40px; height: 40px; border: 4px solid #e0e7ff; border-top: 4px solid #4f46e5; border-radius: 50%; animation: spin 1s linear infinite;"></div>
             กำลังโหลดระบบ TeamSync...
@@ -52,11 +103,9 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- Safe Local Storage ---
         const safeGetLocal = (key) => { try { return localStorage.getItem(key); } catch(e) { return null; } };
         const safeSetLocal = (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} };
 
-        // --- Telegram & Firebase Config ---
         const TG_TOKEN = "8297881671:AAGcSq319AVyjvagyxBDV1STtdRV5WPILKs";
         const DEFAULT_TG_CHAT_ID = "-1003907894437";
 
@@ -73,7 +122,68 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // --- Error Boundary (ป้องกันแอปจอขาวเวลาพัง) ---
+        // --- Priority helpers ---
+        const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
+        const sortByPriority = (tasks) => [...tasks].sort((a, b) => {
+            const urgA = getUrgencyScore(a.dueDate);
+            const urgB = getUrgencyScore(b.dueDate);
+            if (urgA !== urgB) return urgA - urgB;
+            return (PRIORITY_ORDER[a.priority] ?? 1) - (PRIORITY_ORDER[b.priority] ?? 1);
+        });
+
+        const getUrgencyScore = (dueDate) => {
+            if (!dueDate) return 99;
+            const today = new Date(); today.setHours(0,0,0,0);
+            const due = new Date(dueDate); due.setHours(0,0,0,0);
+            const diff = Math.floor((due - today) / 86400000);
+            if (diff < 0) return 0;   // overdue
+            if (diff === 0) return 1; // today
+            if (diff <= 2) return 2;  // soon
+            return 3;
+        };
+
+        const getDueBadge = (dueDate) => {
+            if (!dueDate) return null;
+            const today = new Date(); today.setHours(0,0,0,0);
+            const due = new Date(dueDate); due.setHours(0,0,0,0);
+            const diff = Math.floor((due - today) / 86400000);
+            if (diff < 0) return { label: `เกินกำหนด ${Math.abs(diff)} วัน`, cls: 'bg-purple-100 text-purple-700', dot: '🔴' };
+            if (diff === 0) return { label: 'วันนี้!', cls: 'bg-red-100 text-red-600', dot: '🔥' };
+            if (diff <= 2) return { label: `อีก ${diff} วัน`, cls: 'bg-amber-100 text-amber-600', dot: '⚡' };
+            return null;
+        };
+
+        const getTaskCardClass = (task) => {
+            const urgency = getUrgencyScore(task.dueDate);
+            if (urgency === 0) return 'task-card due-overdue border border-purple-200';
+            if (urgency === 1) return 'task-card due-today border border-red-100';
+            if (urgency === 2) return 'task-card due-soon border border-amber-100';
+            const p = task.priority || 'medium';
+            if (p === 'high') return 'task-card task-high';
+            if (p === 'low') return 'task-card task-low';
+            return 'task-card task-medium';
+        };
+
+        const getPriorityBadgeStyle = (priority) => {
+            if (priority === 'high') return 'bg-red-50 text-red-600 border-red-200';
+            if (priority === 'low') return 'bg-emerald-50 text-emerald-600 border-emerald-200';
+            return 'bg-amber-50 text-amber-600 border-amber-200';
+        };
+
+        const getPriorityLabel = (priority) => {
+            if (priority === 'high') return '🔴 สูง';
+            if (priority === 'low') return '🟢 ต่ำ';
+            return '🟡 ปานกลาง';
+        };
+
+        const getTimeContext = () => {
+            const h = new Date().getHours();
+            if (h >= 5 && h < 12) return { greeting: 'อรุณสวัสดิ์', bgCls: 'morning-bg', textCls: 'text-amber-900', emoji: '🌅' };
+            if (h >= 12 && h < 17) return { greeting: 'สวัสดีตอนบ่าย', bgCls: 'afternoon-bg', textCls: 'text-indigo-900', emoji: '☀️' };
+            if (h >= 17 && h < 21) return { greeting: 'สวัสดีตอนเย็น', bgCls: 'evening-bg', textCls: 'text-indigo-100', emoji: '🌇' };
+            return { greeting: 'ราตรีสวัสดิ์', bgCls: 'night-bg', textCls: 'text-slate-200', emoji: '🌙' };
+        };
+
         class ErrorBoundary extends React.Component {
             constructor(props) { super(props); this.state = { hasError: false, errorInfo: null }; }
             static getDerivedStateFromError(error) { return { hasError: true, errorInfo: error }; }
@@ -85,7 +195,6 @@
             }
         }
 
-        // --- Icons Mapping ---
         const Icon = ({ name, size = 18, className = "" }) => {
             const paths = {
                 dashboard: "M3 3h7v9H3V3zm11 0h7v5h-7V3zm0 9h7v9h-7v-9zM3 16h7v5H3v-5z",
@@ -101,13 +210,14 @@
                 x: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
                 chevronRight: "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
                 bell: "M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z",
-                layers: "M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"
+                layers: "M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z",
+                save: "M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z",
+                check: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
             };
             return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d={paths[name] || ""} /></svg>;
         };
 
         function App() {
-            // --- Core States ---
             const [user, setUser] = useState(null);
             const [profile, setProfile] = useState(null);
             const [loading, setLoading] = useState(true);
@@ -118,7 +228,6 @@
             const [tasks, setTasks] = useState([]);
             const [members, setMembers] = useState([]);
             
-            // UI States
             const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
             const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
             const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -126,16 +235,26 @@
             const [editingTask, setEditingTask] = useState(null);
             const [viewingTask, setViewingTask] = useState(null);
             const [calDate, setCalDate] = useState(new Date());
+            const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+            const [defaultTaskDate, setDefaultTaskDate] = useState(new Date().toISOString().split('T')[0]);
+            
             const [selectedAssignees, setSelectedAssignees] = useState([]);
             const [testStatus, setTestStatus] = useState('ทดสอบแจ้งเตือน');
 
-            // --- Telegram Notifier ---
+            // --- Journal States (Daily & Monthly) ---
+            const initialDailyState = { goal: '', behaviors: [], situations: [{sit:'', how:'', who:''}, {sit:'', how:'', who:''}] };
+            const initialMonthlyState = { achievements: '', summary: '', wellDone: '', improve: '' };
+            const [dailyLog, setDailyLog] = useState(initialDailyState);
+            const [monthlyLog, setMonthlyLog] = useState(initialMonthlyState);
+            const [isSavingLog, setIsSavingLog] = useState(false);
+
+            const timeCtx = useMemo(() => getTimeContext(), []);
+            const behaviorOptions = ['ทัศนคติดี', 'ตรงต่อเวลา', 'เตรียมตัวล่วงหน้า', 'ทำงานเต็มวัน', 'มีเป้าหมาย', 'ควบคุมอารมณ์ได้'];
+
             const notifyTG = async (title, message, targetChatIds = []) => {
                 const ids = [DEFAULT_TG_CHAT_ID, ...targetChatIds];
                 const uniqueIds = [...new Set(ids.filter(id => id && id.trim() !== ""))];
-
                 const text = `<b>${title}</b>\n━━━━━━━━━━━━━━\n${message}\n━━━━━━━━━━━━━━\n<i>TeamSync Pro Real-time</i>`;
-                
                 for (const chatId of uniqueIds) {
                     try {
                         await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
@@ -147,26 +266,21 @@
                 }
             };
 
-            // Test Button Logic
             const handleTestNotif = async () => {
                 const inputEl = document.querySelector('input[name="tgChatId"]');
                 const targetId = inputEl?.value?.trim() || DEFAULT_TG_CHAT_ID;
-                
                 setTestStatus('กำลังส่ง...');
                 await notifyTG("🔔 ทดสอบระบบแจ้งเตือน", "การเชื่อมต่อ Telegram ของคุณทำงานได้ปกติ!", [targetId]);
                 setTestStatus('✅ ส่งแล้ว');
-                
                 setTimeout(() => setTestStatus('ทดสอบแจ้งเตือน'), 3000);
             };
 
-            // Logout Logic
             const handleLogout = async () => {
                 const pName = profile?.name || user?.email || "ผู้ใช้";
                 notifyTG("🚪 ออกจากระบบ", `👤 <b>${pName}</b> ได้ออกจากระบบแล้ว`);
                 await auth.signOut();
             };
 
-            // 1. Authentication Sync
             useEffect(() => {
                 const unsubscribe = auth.onAuthStateChanged(async (u) => {
                     if (u) {
@@ -176,88 +290,123 @@
                             if (doc.exists) {
                                 setProfile(doc.data());
                                 setScreen(activeTeamId ? 'workspace' : 'hub');
-                            } else {
-                                setScreen('setup');
-                            }
+                            } else { setScreen('setup'); }
                         } catch (e) { console.error("Profile Error", e); setScreen('setup'); }
-                    } else {
-                        setScreen('auth');
-                    }
+                    } else { setScreen('auth'); }
                     setLoading(false);
                 });
                 return () => unsubscribe();
             }, [activeTeamId]);
 
-            // 2. Data Synchronization
             useEffect(() => {
                 if (screen !== 'workspace' || !activeTeamId || !user) return;
                 const path = `teams_v16/${activeTeamId}`;
-                
                 const unsubTasks = db.collection(`${path}/tasks`).onSnapshot(s => {
                     setTasks(s.docs.map(d => ({id: d.id, ...d.data()})));
                 }, (err) => console.error("Tasks Error", err));
-                
                 const unsubMembers = db.collection(`${path}/members`).onSnapshot(s => {
                     setMembers(s.docs.map(d => ({id: d.id, ...d.data()})));
                 }, (err) => console.error("Members Error", err));
-
-                // Sync profile data to team members list
                 db.collection(`${path}/members`).doc(user.uid).set({
-                    name: profile?.name || "User", 
-                    email: user.email, 
+                    name: profile?.name || "User", email: user.email, 
                     tgChatId: profile?.tgChatId || "",
                     lastSeen: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
-
                 return () => { unsubTasks(); unsubMembers(); };
             }, [activeTeamId, screen, user, profile]);
 
-            // 3. Daily Reminders (Client-side Cron Job แจ้งเตือนงาน)
+            // --- Fetch Journals Effect ---
+            useEffect(() => {
+                if (screen !== 'workspace' || !activeTeamId || !user) return;
+                const fetchLogs = async () => {
+                    try {
+                        const dailyId = `daily_${user.uid}_${selectedDate}`;
+                        const dDoc = await db.collection(`teams_v16/${activeTeamId}/logs`).doc(dailyId).get();
+                        if (dDoc.exists) setDailyLog(dDoc.data());
+                        else setDailyLog(initialDailyState);
+
+                        const monthStr = `${calDate.getFullYear()}-${String(calDate.getMonth() + 1).padStart(2, '0')}`;
+                        const monthlyId = `monthly_${user.uid}_${monthStr}`;
+                        const mDoc = await db.collection(`teams_v16/${activeTeamId}/logs`).doc(monthlyId).get();
+                        if (mDoc.exists) setMonthlyLog(mDoc.data());
+                        else setMonthlyLog(initialMonthlyState);
+                    } catch (e) { console.error("Error fetching logs", e); }
+                };
+                fetchLogs();
+            }, [activeTeamId, screen, user, selectedDate, calDate]);
+
+            useEffect(() => {
+                if (screen !== 'workspace' || !activeTeamId || !profile) return;
+                const scheduleReminder = (targetHour, targetMin, reminderKey) => {
+                    const now = new Date();
+                    const next = new Date();
+                    next.setHours(targetHour, targetMin, 0, 0);
+                    if (next <= now) next.setDate(next.getDate() + 1);
+                    const delay = next - now;
+
+                    return setTimeout(async () => {
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const metaRef = db.collection(`teams_v16/${activeTeamId}/meta`).doc(`${reminderKey}_${todayStr}`);
+                        try {
+                            const doc = await metaRef.get();
+                            if (!doc.exists) {
+                                await metaRef.set({ reminded: true, by: profile.name, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+                                const snap = await db.collection(`teams_v16/${activeTeamId}/tasks`).get();
+                                const freshTasks = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                                const localDateStr = new Date().toISOString().split('T')[0];
+                                const target2 = new Date(); target2.setDate(target2.getDate() + 2);
+                                const t2Str = target2.toISOString().split('T')[0];
+
+                                const dueTodayTasks = freshTasks.filter(t => t.status !== 'done' && t.dueDate === localDateStr);
+                                const due2DaysTasks = freshTasks.filter(t => t.status !== 'done' && t.dueDate === t2Str);
+                                const overdueTasks = freshTasks.filter(t => {
+                                    if (t.status === 'done' || !t.dueDate) return false;
+                                    return new Date(t.dueDate) < new Date(localDateStr);
+                                });
+
+                                const timeLabel = targetHour === 8 ? '🌅 ตรวจสอบงานประจำเช้า' : '🌙 สรุปงานประจำเย็น';
+                                let messages = [];
+                                if (overdueTasks.length > 0) messages.push(`🚨 งานเกินกำหนด ${overdueTasks.length} รายการ:\n${overdueTasks.map(t => `‼️ <b>${t.title}</b> (รับผิดชอบ: ${t.assignees?.join(', ')})`).join('\n')}`);
+                                if (dueTodayTasks.length > 0) messages.push(`📌 งานที่ต้องเสร็จวันนี้ ${dueTodayTasks.length} รายการ:\n${dueTodayTasks.map(t => `🔥 <b>${t.title}</b> (รับผิดชอบ: ${t.assignees?.join(', ')})`).join('\n')}`);
+                                if (due2DaysTasks.length > 0) messages.push(`📋 งานกำหนดส่งใน 2 วัน ${due2DaysTasks.length} รายการ:\n${due2DaysTasks.map(t => `⏳ <b>${t.title}</b> (รับผิดชอบ: ${t.assignees?.join(', ')})`).join('\n')}`);
+
+                                if (messages.length > 0) notifyTG(timeLabel, messages.join('\n\n'));
+                                else notifyTG(timeLabel, '✅ ไม่มีงานเร่งด่วนในขณะนี้ ทีมงานดีเยี่ยม!');
+                            }
+                        } catch(e) { console.error("Scheduled Reminder Error", e); }
+                    }, delay);
+                };
+                const timer8 = scheduleReminder(8, 0, 'sched_morning');
+                const timer19 = scheduleReminder(19, 0, 'sched_evening');
+                return () => { clearTimeout(timer8); clearTimeout(timer19); };
+            }, [activeTeamId, screen, profile]);
+
             useEffect(() => {
                 if (screen !== 'workspace' || !activeTeamId || tasks.length === 0 || !profile) return;
-                
                 const checkReminders = async () => {
                     const d = new Date();
                     const localDateStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
                     const metaRef = db.collection(`teams_v16/${activeTeamId}/meta`).doc(`reminder_${localDateStr}`);
-                    
                     try {
                         const doc = await metaRef.get();
                         if (!doc.exists) {
-                            // บันทึกป้องกันการส่งเบิ้ลจากคนอื่นในทีม
                             await metaRef.set({ reminded: true, by: profile.name, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
-                            
-                            // คำนวณอีก 2 วัน
-                            const targetDate2Days = new Date();
-                            targetDate2Days.setDate(targetDate2Days.getDate() + 2);
+                            const targetDate2Days = new Date(); targetDate2Days.setDate(targetDate2Days.getDate() + 2);
                             const target2DaysStr = targetDate2Days.getFullYear() + "-" + String(targetDate2Days.getMonth() + 1).padStart(2, '0') + "-" + String(targetDate2Days.getDate()).padStart(2, '0');
-
                             const dueTodayTasks = tasks.filter(t => t.status !== 'done' && t.dueDate === localDateStr);
                             const due2DaysTasks = tasks.filter(t => t.status !== 'done' && t.dueDate === target2DaysStr);
-
-                            if (dueTodayTasks.length > 0) {
-                                let msg = dueTodayTasks.map(t => `- <b>${t.title}</b> (ผู้รับผิดชอบ: ${t.assignees?.join(', ')})`).join('\n');
-                                notifyTG("🚨 กำหนดส่งงานวันนี้!", `รายชื่องานที่ต้องทำให้เสร็จภายในวันนี้:\n${msg}`);
-                            }
-
-                            if (due2DaysTasks.length > 0) {
-                                let msg = due2DaysTasks.map(t => `- <b>${t.title}</b> (ผู้รับผิดชอบ: ${t.assignees?.join(', ')})`).join('\n');
-                                notifyTG("⏳ เตือนกำหนดส่งงาน (ล่วงหน้า 2 วัน)", `รายชื่องานที่จะถึงกำหนดในอีก 2 วัน:\n${msg}`);
-                            }
+                            if (dueTodayTasks.length > 0) notifyTG("🚨 กำหนดส่งงานวันนี้!", `รายชื่องานที่ต้องทำให้เสร็จภายในวันนี้:\n${dueTodayTasks.map(t => `- <b>${t.title}</b> (ผู้รับผิดชอบ: ${t.assignees?.join(', ')})`).join('\n')}`);
+                            if (due2DaysTasks.length > 0) notifyTG("⏳ เตือนกำหนดส่งงาน (ล่วงหน้า 2 วัน)", `รายชื่องานที่จะถึงกำหนดในอีก 2 วัน:\n${due2DaysTasks.map(t => `- <b>${t.title}</b> (ผู้รับผิดชอบ: ${t.assignees?.join(', ')})`).join('\n')}`);
                         }
                     } catch(e) { console.error("Reminder Error", e); }
                 };
-
-                const timer = setTimeout(checkReminders, 5000); // ดีเลย์ 5 วิ ให้ข้อมูลโหลดเสร็จชัวร์ๆ
+                const timer = setTimeout(checkReminders, 5000);
                 return () => clearTimeout(timer);
             }, [activeTeamId, screen, tasks.length, profile]);
 
-
-            // --- Logic Handlers ---
             const handleAuth = async (e) => {
                 e.preventDefault();
-                const em = e.target.email.value;
-                const pw = e.target.password.value;
+                const em = e.target.email.value, pw = e.target.password.value;
                 try {
                     await auth.setPersistence('local');
                     await auth.signInWithEmailAndPassword(em, pw);
@@ -267,8 +416,7 @@
                         await auth.setPersistence('local');
                         await auth.createUserWithEmailAndPassword(em, pw); 
                         notifyTG("🎉 สมัครสมาชิกใหม่!", `👤 ผู้ใช้ <b>${em}</b> ได้ลงทะเบียนและเข้าสู่ระบบครั้งแรก!`);
-                    }
-                    catch (e2) { alert("Error: " + e2.message); }
+                    } catch (e2) { alert("Error: " + e2.message); }
                 }
             };
 
@@ -311,7 +459,6 @@
                     status: fd.get('status') || 'todo',
                     assignees: selectedAssignees.length > 0 ? selectedAssignees : [profile?.name || "User"]
                 };
-
                 let personalChatIds = [];
                 if (!taskData.assignees.includes('ทุกคน')) {
                     taskData.assignees.forEach(name => {
@@ -319,11 +466,10 @@
                         if (m && m.tgChatId) personalChatIds.push(m.tgChatId);
                     });
                 }
-
                 const path = `teams_v16/${activeTeamId}/tasks`;
                 if (editingTask) {
                     await db.collection(path).doc(editingTask.id).update(taskData);
-                    notifyTG("📝 อัปเดตงาน", `📌 <b>งาน:</b> ${taskData.title}\n👥 <b>โดย:</b> ${profile.name}\n📊 <b>สถานะ:</b> ${taskData.status.toUpperCase()}`, personalChatIds);
+                    notifyTG("📝 อัปเดตงาน", `📌 <b>งาน:</b> ${taskData.title}\n👤 <b>โดย:</b> ${profile.name}\n📊 <b>สถานะ:</b> ${taskData.status.toUpperCase()}`, personalChatIds);
                 } else {
                     await db.collection(path).add({ ...taskData, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
                     notifyTG("🚀 มีงานใหม่!", `📌 <b>งาน:</b> ${taskData.title}\n👥 <b>มอบหมาย:</b> ${taskData.assignees.join(', ')}\n📅 <b>กำหนด:</b> ${taskData.dueDate}`, personalChatIds);
@@ -332,11 +478,26 @@
                 setEditingTask(null);
             };
 
+            const quickUpdateStatus = async (task, newStatus) => {
+                if (task.status === newStatus) return;
+                try {
+                    await db.collection(`teams_v16/${activeTeamId}/tasks`).doc(task.id).update({ status: newStatus });
+                    setViewingTask(prev => ({ ...prev, status: newStatus }));
+                    let personalChatIds = [];
+                    if (task.assignees && !task.assignees.includes('ทุกคน')) {
+                        task.assignees.forEach(name => {
+                            const m = members.find(member => member.name === name);
+                            if (m && m.tgChatId) personalChatIds.push(m.tgChatId);
+                        });
+                    }
+                    notifyTG("🔄 เปลี่ยนสถานะงาน", `📌 <b>งาน:</b> ${task.title}\n👤 <b>โดย:</b> ${profile.name}\n📊 <b>สถานะใหม่:</b> ${newStatus.toUpperCase()}`, personalChatIds);
+                } catch (e) { console.error("Error updating status:", e); }
+            };
+
             const deleteTask = async (task) => {
                 if (confirm("ยืนยันลบงานนี้?")) {
                     await db.collection(`teams_v16/${activeTeamId}/tasks`).doc(task.id).delete();
                     setViewingTask(null);
-                    
                     let personalChatIds = [];
                     if (task.assignees && !task.assignees.includes('ทุกคน')) {
                         task.assignees.forEach(name => {
@@ -362,7 +523,26 @@
                 }
             };
 
-            // --- Computations ---
+            // --- Save Journal Functions ---
+            const saveDailyLog = async () => {
+                setIsSavingLog(true);
+                try {
+                    const dailyId = `daily_${user.uid}_${selectedDate}`;
+                    await db.collection(`teams_v16/${activeTeamId}/logs`).doc(dailyId).set(dailyLog, { merge: true });
+                } catch (e) { console.error("Save daily log error", e); }
+                setTimeout(() => setIsSavingLog(false), 500);
+            };
+
+            const saveMonthlyLog = async () => {
+                setIsSavingLog(true);
+                try {
+                    const monthStr = `${calDate.getFullYear()}-${String(calDate.getMonth() + 1).padStart(2, '0')}`;
+                    const monthlyId = `monthly_${user.uid}_${monthStr}`;
+                    await db.collection(`teams_v16/${activeTeamId}/logs`).doc(monthlyId).set(monthlyLog, { merge: true });
+                } catch (e) { console.error("Save monthly log error", e); }
+                setTimeout(() => setIsSavingLog(false), 500);
+            };
+
             const stats = useMemo(() => {
                 const t = tasks || [], total = t.length, done = t.filter(x => x.status === 'done').length;
                 const workload = (members || []).map(m => ({
@@ -371,13 +551,16 @@
                 return { total, done, rate: total > 0 ? Math.round((done / total) * 100) : 0, workload };
             }, [tasks, members]);
 
-            const myPersonal = (tasks || []).filter(t => t.assignees?.includes(profile?.name) && !t.assignees?.includes('ทุกคน'));
-            const groupShared = (tasks || []).filter(t => t.assignees?.includes('ทุกคน'));
+            const myPersonal = sortByPriority(
+                (tasks || []).filter(t => t.status !== 'done' && t.assignees?.includes(profile?.name) && !t.assignees?.includes('ทุกคน'))
+            );
+            const groupShared = sortByPriority(
+                (tasks || []).filter(t => t.status !== 'done' && t.assignees?.includes('ทุกคน'))
+            );
             const pendingCount = (tasks || []).filter(t => t.status !== 'done' && (t.assignees?.includes(profile?.name) || t.assignees?.includes('ทุกคน'))).length;
 
             if (loading) return <div className="h-screen flex items-center justify-center font-bold text-indigo-600 text-xl"><div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mr-3"></div> TeamSync Linking...</div>;
 
-            // --- Rendering Screens ---
             if (screen === 'auth') return (
                 <div className="h-screen flex items-center justify-center p-6 bg-slate-900">
                     <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm text-center animate-in">
@@ -397,14 +580,12 @@
                     <div className="bg-white p-10 rounded-[3rem] w-full max-w-sm text-center animate-in">
                         <h1 className="text-2xl font-black mb-6 text-indigo-600">ตั้งค่าโปรไฟล์</h1>
                         <form onSubmit={handleProfileSave} className="space-y-4">
-                            <input name="username" required defaultValue={profile?.name || ""} placeholder="ชื่อเล่นหรือชื่อจริง..." className="w-full p-4 bg-slate-50 rounded-2xl text-center font-bold text-lg outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
+                            <input name="username" required defaultValue={profile?.name || ""} placeholder="ชื่อเล่นหรือชื่อจริง..." className="w-full min-w-0 p-4 bg-slate-50 rounded-2xl text-center font-bold text-lg outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic block text-left px-2">CHAT ID (OPTIONAL)</label>
                                 <div className="flex gap-2">
-                                    <input name="tgChatId" defaultValue={profile?.tgChatId || ""} className="w-full p-4 bg-slate-50 rounded-2xl text-center font-bold text-sm text-slate-500 outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
-                                    <button type="button" onClick={handleTestNotif} className="px-4 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-[10px] active:scale-95 transition-all whitespace-nowrap hover:bg-indigo-100 border border-indigo-100">
-                                        {testStatus}
-                                    </button>
+                                    <input name="tgChatId" defaultValue={profile?.tgChatId || ""} className="w-full min-w-0 p-4 bg-slate-50 rounded-2xl text-center font-bold text-sm text-slate-500 outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
+                                    <button type="button" onClick={handleTestNotif} className="px-4 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-[10px] active:scale-95 transition-all whitespace-nowrap hover:bg-indigo-100 border border-indigo-100 shrink-0">{testStatus}</button>
                                 </div>
                             </div>
                             <button className="w-full p-4 btn-primary rounded-2xl font-black shadow-xl uppercase text-xs mt-2">เริ่มต้นใช้งาน</button>
@@ -419,14 +600,12 @@
                         <button type="button" onClick={() => setIsEditProfileOpen(false)} className="absolute top-6 right-6 text-slate-400 active:scale-90"><Icon name="x" size={20}/></button>
                         <h2 className="text-xl font-black mb-6 text-indigo-600">แก้ไขโปรไฟล์ & แจ้งเตือน</h2>
                         <form onSubmit={handleProfileSave} className="space-y-4">
-                            <input name="username" required defaultValue={profile?.name || ""} placeholder="ชื่อเล่นหรือชื่อจริง..." className="w-full p-4 bg-slate-50 rounded-2xl text-center font-bold text-lg outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
+                            <input name="username" required defaultValue={profile?.name || ""} placeholder="ชื่อเล่นหรือชื่อจริง..." className="w-full min-w-0 p-4 bg-slate-50 rounded-2xl text-center font-bold text-lg outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic block text-left px-2">CHAT ID (OPTIONAL)</label>
                                 <div className="flex gap-2">
-                                    <input name="tgChatId" defaultValue={profile?.tgChatId || ""} className="w-full p-4 bg-slate-50 rounded-2xl text-center font-bold text-sm text-slate-500 outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
-                                    <button type="button" onClick={handleTestNotif} className="px-4 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-[10px] active:scale-95 transition-all whitespace-nowrap hover:bg-indigo-100 border border-indigo-100">
-                                        {testStatus}
-                                    </button>
+                                    <input name="tgChatId" defaultValue={profile?.tgChatId || ""} className="w-full min-w-0 p-4 bg-slate-50 rounded-2xl text-center font-bold text-sm text-slate-500 outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
+                                    <button type="button" onClick={handleTestNotif} className="px-4 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-[10px] active:scale-95 transition-all whitespace-nowrap hover:bg-indigo-100 border border-indigo-100 shrink-0">{testStatus}</button>
                                 </div>
                             </div>
                             <button className="w-full p-4 btn-primary rounded-2xl font-black shadow-xl uppercase text-xs mt-2">บันทึกข้อมูล</button>
@@ -450,8 +629,8 @@
                     <div className="bg-white p-7 rounded-[2.5rem] shadow-sm border mb-8 text-center">
                         <h2 className="text-sm font-black mb-4 flex items-center justify-center gap-2 text-indigo-600"><Icon name="plus" size={16}/> สร้าง/เข้าร่วมทีมใหม่</h2>
                         <form onSubmit={joinTeam} className="flex gap-2">
-                            <input name="teamId" required placeholder="TEAM-ID" className="flex-1 p-3.5 bg-slate-50 border-none rounded-xl font-bold uppercase outline-none" />
-                            <button className="px-5 btn-primary rounded-xl font-black">GO</button>
+                            <input name="teamId" required placeholder="TEAM-ID" className="flex-1 min-w-0 p-3.5 bg-slate-50 border-none rounded-xl font-bold uppercase outline-none" />
+                            <button className="px-5 btn-primary rounded-xl font-black shrink-0">GO</button>
                         </form>
                     </div>
                     <div className="space-y-3">
@@ -467,6 +646,7 @@
                 </div>
             );
 
+            // ===== WORKSPACE =====
             return (
                 <div className="min-h-screen pb-24 md:pl-64 md:pb-0 animate-in">
                     <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 bg-white border-r p-8 z-30">
@@ -481,8 +661,9 @@
                         <button onClick={() => setScreen('hub')} className="mt-auto p-4 bg-slate-900 rounded-xl text-white text-[10px] font-black uppercase text-center tracking-[0.2em] shadow-lg active:scale-95 transition-all">สลับทีมงาน</button>
                     </aside>
 
+                    {/* --- FIXED: Added 'calendar' to Mobile Navigation --- */}
                     <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-md border-t flex justify-around p-2 pb-safe z-40 shadow-xl">
-                        {['dashboard', 'mytasks', 'board', 'members'].map(m => (
+                        {['dashboard', 'mytasks', 'board', 'calendar', 'members'].map(m => (
                             <button key={m} onClick={() => setView(m)} className={`p-3 rounded-xl transition-all ${view === m ? 'text-indigo-600 bg-indigo-50' : 'text-slate-300'}`}>
                                 <Icon name={m} size={22}/>
                             </button>
@@ -491,14 +672,24 @@
                     </nav>
 
                     <main className="p-4 md:p-12 max-w-4xl mx-auto space-y-6 pb-12">
-                        <header className="flex justify-between items-start mb-2">
-                            <div><h2 className="text-2xl font-black leading-none flex items-center gap-3 italic cursor-pointer hover:text-indigo-600 transition-all" onClick={() => setIsEditProfileOpen(true)}>คุณ{profile?.name} <Icon name="edit" size={14} className="text-slate-300 hover:text-indigo-400"/></h2><p className="text-indigo-500 font-bold text-[10px] uppercase tracking-widest mt-2">Team: #{activeTeamId} • {view}</p></div>
-                            <div className="flex gap-2">
-                                <button onClick={() => setIsNotifOpen(true)} className="relative w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center border border-slate-100 active:scale-90 transition-all">
-                                    <Icon name="bell" size={20} className="text-slate-600"/>
-                                    {pendingCount > 0 && <span className="absolute top-2 right-3 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
-                                </button>
-                                <button onClick={() => { setEditingTask(null); setSelectedAssignees([profile?.name]); setIsTaskModalOpen(true); }} className="w-12 h-12 btn-primary rounded-2xl shadow-xl flex items-center justify-center active:scale-90 transition-all"><Icon name="plus" size={24}/></button>
+                        <header className={`rounded-[2rem] p-6 mb-2 ${timeCtx.bgCls}`}>
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className={`text-xs font-black uppercase tracking-widest opacity-70 ${timeCtx.textCls}`}>{timeCtx.emoji} {timeCtx.greeting}</p>
+                                    <h2 className={`text-2xl font-black leading-none mt-1 flex items-center gap-3 italic cursor-pointer ${timeCtx.textCls}`} onClick={() => setIsEditProfileOpen(true)}>
+                                        คุณ{profile?.name} <Icon name="edit" size={14} className="opacity-40"/>
+                                    </h2>
+                                    <p className={`font-bold text-[10px] uppercase tracking-widest mt-2 opacity-60 ${timeCtx.textCls}`}>Team: #{activeTeamId} • {view}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setIsNotifOpen(true)} className="relative w-12 h-12 bg-white/30 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/40 active:scale-90 transition-all shrink-0">
+                                        <Icon name="bell" size={20} className={timeCtx.textCls}/>
+                                        {pendingCount > 0 && <span className="absolute top-2 right-3 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
+                                    </button>
+                                    <button onClick={() => { setEditingTask(null); setSelectedAssignees([profile?.name]); setDefaultTaskDate(new Date().toISOString().split('T')[0]); setIsTaskModalOpen(true); }} className="w-12 h-12 bg-white/30 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/40 active:scale-90 transition-all shrink-0">
+                                        <Icon name="plus" size={24} className={timeCtx.textCls}/>
+                                    </button>
+                                </div>
                             </div>
                         </header>
 
@@ -510,17 +701,48 @@
                                 </div>
                                 <div className="bg-white p-7 rounded-[2.5rem] border flex items-center justify-between shadow-sm">
                                     <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Team Success</p><p className="text-5xl font-black text-indigo-600 mt-2 tracking-tighter">{stats.rate}%</p></div>
-                                    <div className="w-24 h-12 bg-indigo-50 rounded-xl relative overflow-hidden"><div className="h-full bg-indigo-500 transition-all duration-1000" style={{width: `${stats.rate}%`}}></div></div>
+                                    <div className="w-24 h-12 bg-indigo-50 rounded-xl relative overflow-hidden shrink-0"><div className="h-full bg-indigo-500 transition-all duration-1000" style={{width: `${stats.rate}%`}}></div></div>
                                 </div>
+
+                                {(() => {
+                                    const urgentTasks = sortByPriority(tasks.filter(t => t.status !== 'done' && getUrgencyScore(t.dueDate) <= 1));
+                                    if (urgentTasks.length === 0) return null;
+                                    return (
+                                        <div className="bg-red-50 border border-red-100 p-5 rounded-[2rem]">
+                                            <h3 className="font-black text-xs mb-3 text-red-600 uppercase tracking-widest flex items-center gap-2">🚨 งานเร่งด่วน ({urgentTasks.length})</h3>
+                                            <div className="space-y-2">
+                                                {urgentTasks.map(t => {
+                                                    const badge = getDueBadge(t.dueDate);
+                                                    return (
+                                                        <div key={t.id} onClick={() => setViewingTask(t)} className="p-3 bg-white rounded-xl flex justify-between items-center cursor-pointer hover:bg-red-50 border border-red-100 urgent-pulse">
+                                                            <div className="flex-1 min-w-0 mr-2"><p className="font-bold text-sm leading-none truncate">{t.title}</p><p className="text-[9px] text-slate-400 font-bold mt-1 truncate">{t.assignees?.join(', ')}</p></div>
+                                                            {badge && <span className={`text-[9px] font-black px-2 py-1 rounded-lg shrink-0 ${badge.cls}`}>{badge.dot} {badge.label}</span>}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
                                 <div className="bg-white p-7 rounded-[2.5rem] border shadow-sm">
                                     <h3 className="font-black text-xs mb-4 uppercase text-slate-300 italic tracking-widest">Latest Update</h3>
                                     <div className="space-y-3">
-                                        {tasks.slice(-3).reverse().map(t => (
-                                            <div key={t.id} onClick={() => setViewingTask(t)} className="p-4 bg-slate-50 rounded-2xl flex justify-between items-center cursor-pointer hover:bg-indigo-50 transition-all border border-transparent hover:border-indigo-100">
-                                                <div><p className="font-bold text-sm leading-none mb-2">{t.title}</p><p className="text-[9px] text-slate-400 font-bold uppercase">{t.dueDate}</p></div>
-                                                <div className={`w-1.5 h-8 rounded-full ${t.status === 'done' ? 'bg-emerald-400' : 'bg-indigo-400'}`}></div>
-                                            </div>
-                                        ))}
+                                        {tasks.slice(-3).reverse().map(t => {
+                                            const badge = getDueBadge(t.dueDate);
+                                            return (
+                                                <div key={t.id} onClick={() => setViewingTask(t)} className={`p-4 rounded-2xl flex justify-between items-center cursor-pointer transition-all border ${getTaskCardClass(t)}`}>
+                                                    <div className="flex-1 min-w-0 mr-3">
+                                                        <p className="font-bold text-sm leading-none mb-1 truncate">{t.title}</p>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <p className="text-[9px] text-slate-400 font-bold uppercase truncate">{t.dueDate}</p>
+                                                            {badge && <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md shrink-0 ${badge.cls}`}>{badge.dot}</span>}
+                                                        </div>
+                                                    </div>
+                                                    <div className={`w-1.5 h-8 rounded-full shrink-0 ${t.status === 'done' ? 'bg-emerald-400' : 'bg-indigo-400'}`}></div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>
@@ -528,48 +750,88 @@
 
                         {view === 'mytasks' && (
                             <div className="bg-white p-7 rounded-[2.5rem] border shadow-sm animate-in">
-                                <h3 className="text-xl font-black mb-1">งานของฉัน</h3>
-                                <div className="space-y-3 mb-10">
-                                    {myPersonal.map(t => (
-                                        <div key={t.id} onClick={() => setViewingTask(t)} className="bg-slate-50 p-5 rounded-2xl flex justify-between items-center cursor-pointer hover:bg-indigo-50 border border-transparent">
-                                            <div><h4 className={`font-bold text-sm ${t.status === 'done' ? 'line-through text-slate-400' : ''}`}>{t.title}</h4><p className="text-[9px] text-slate-400 font-bold mt-1 uppercase italic">{t.dueDate || 'N/A'} • {t.priority || 'Medium'}</p></div>
-                                            <Icon name="chevronRight" className="text-slate-200" />
-                                        </div>
-                                    ))}
-                                    {myPersonal.length === 0 && <p className="text-center py-10 text-slate-300 font-bold italic">ไม่มีงานส่วนตัว</p>}
+                                <div className="flex gap-2 mb-5 flex-wrap">
+                                    <span className="text-[9px] font-black bg-red-50 text-red-500 border border-red-100 px-2 py-1 rounded-lg">🔴 สูง/เร่งด่วน</span>
+                                    <span className="text-[9px] font-black bg-amber-50 text-amber-500 border border-amber-100 px-2 py-1 rounded-lg">🟡 ปานกลาง</span>
+                                    <span className="text-[9px] font-black bg-emerald-50 text-emerald-500 border border-emerald-100 px-2 py-1 rounded-lg">🟢 ต่ำ</span>
+                                    <span className="text-[9px] font-black bg-purple-50 text-purple-500 border border-purple-100 px-2 py-1 rounded-lg">🔴 เกินกำหนด</span>
                                 </div>
-                                <h3 className="text-xl font-black mb-1 pt-6 border-t">งานกลุ่ม (ทุกคน)</h3>
+                                <h3 className="text-xl font-black mb-3">งานของฉัน <span className="text-sm font-bold text-slate-400">({myPersonal.length})</span></h3>
+                                <div className="space-y-3 mb-10">
+                                    {myPersonal.map(t => {
+                                        const badge = getDueBadge(t.dueDate);
+                                        return (
+                                            <div key={t.id} onClick={() => setViewingTask(t)} className={`p-5 rounded-2xl flex justify-between items-center cursor-pointer ${getTaskCardClass(t)}`}>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                        <span className={`text-[8px] font-black px-2 py-0.5 rounded border ${getPriorityBadgeStyle(t.priority)}`}>{getPriorityLabel(t.priority)}</span>
+                                                        {badge && <span className={`text-[8px] font-black px-2 py-0.5 rounded-md ${badge.cls}`}>{badge.dot} {badge.label}</span>}
+                                                    </div>
+                                                    <h4 className="font-bold text-sm truncate">{t.title}</h4>
+                                                    <p className="text-[9px] text-slate-400 font-bold mt-1 uppercase italic truncate">{t.dueDate || 'N/A'}</p>
+                                                </div>
+                                                <Icon name="chevronRight" className="text-slate-200 shrink-0 ml-2" />
+                                            </div>
+                                        );
+                                    })}
+                                    {myPersonal.length === 0 && <p className="text-center py-10 text-slate-300 font-bold italic">✅ ไม่มีงานส่วนตัวที่ค้างอยู่</p>}
+                                </div>
+                                <h3 className="text-xl font-black mb-3 pt-6 border-t">งานกลุ่ม (ทุกคน) <span className="text-sm font-bold text-slate-400">({groupShared.length})</span></h3>
                                 <div className="space-y-3">
-                                    {groupShared.map(t => (
-                                        <div key={t.id} onClick={() => setViewingTask(t)} className="bg-amber-50/50 p-5 rounded-2xl flex justify-between items-center cursor-pointer hover:bg-amber-100 border border-transparent">
-                                            <div><h4 className={`font-bold text-sm ${t.status === 'done' ? 'line-through text-slate-400' : ''}`}>{t.title}</h4><p className="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-widest italic">Shared Responsibility</p></div>
-                                            <Icon name="chevronRight" className="text-slate-200" />
-                                        </div>
-                                    ))}
-                                    {groupShared.length === 0 && <p className="text-center py-10 text-slate-300 font-bold italic">ไม่มีงานกลุ่ม</p>}
+                                    {groupShared.map(t => {
+                                        const badge = getDueBadge(t.dueDate);
+                                        return (
+                                            <div key={t.id} onClick={() => setViewingTask(t)} className={`p-5 rounded-2xl flex justify-between items-center cursor-pointer ${getTaskCardClass(t)}`}>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                        <span className={`text-[8px] font-black px-2 py-0.5 rounded border ${getPriorityBadgeStyle(t.priority)}`}>{getPriorityLabel(t.priority)}</span>
+                                                        {badge && <span className={`text-[8px] font-black px-2 py-0.5 rounded-md ${badge.cls}`}>{badge.dot} {badge.label}</span>}
+                                                    </div>
+                                                    <h4 className="font-bold text-sm truncate">{t.title}</h4>
+                                                    <p className="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-widest italic truncate">Shared • {t.dueDate || 'N/A'}</p>
+                                                </div>
+                                                <Icon name="chevronRight" className="text-slate-200 shrink-0 ml-2" />
+                                            </div>
+                                        );
+                                    })}
+                                    {groupShared.length === 0 && <p className="text-center py-10 text-slate-300 font-bold italic">✅ ไม่มีงานกลุ่มที่ค้างอยู่</p>}
                                 </div>
                             </div>
                         )}
 
                         {view === 'board' && (
                             <div className="flex gap-4 overflow-x-auto pb-10 no-scrollbar min-h-[500px]">
-                                {['todo', 'in-progress', 'done'].map(st => (
-                                    <div key={st} className="min-w-[280px] flex flex-col bg-slate-100/50 rounded-[2.5rem] p-4 border">
-                                        <div className="flex justify-between items-center mb-5 px-3 italic font-black text-slate-400 text-[10px] uppercase tracking-[0.2em]">{st}</div>
-                                        <div className="space-y-3 overflow-y-auto pr-1 flex-1">
-                                            {tasks.filter(t => (t.status || 'todo') === st).map(task => (
-                                                <div key={task.id} onClick={() => setViewingTask(task)} className="bg-white p-5 rounded-2xl shadow-sm border border-white hover:border-indigo-100 transition-all cursor-pointer">
-                                                    <div className={`text-[8px] font-black px-2 py-0.5 rounded mb-3 inline-block border ${task.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-400'}`}>{(task.priority || 'MEDIUM').toUpperCase()}</div>
-                                                    <h4 className="font-bold text-sm leading-snug line-clamp-2 text-slate-800">{task.title}</h4>
-                                                    <div className="mt-4 flex justify-between items-center pt-3 border-t border-slate-50 text-[9px] font-black text-slate-300 italic">
-                                                        <span>{task.assignees?.join(', ')}</span>
-                                                        <span>{task.dueDate ? task.dueDate.split('-').slice(1).join('/') : ''}</span>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                {['todo', 'in-progress', 'done'].map(st => {
+                                    const colColors = { 'todo': 'bg-slate-100/50', 'in-progress': 'bg-amber-50/50', 'done': 'bg-emerald-50/50' };
+                                    const colTitles = { 'todo': '📋 To Do', 'in-progress': '⚡ In Progress', 'done': '✅ Done' };
+                                    const colTasks = sortByPriority(tasks.filter(t => (t.status || 'todo') === st));
+                                    return (
+                                        <div key={st} className={`min-w-[280px] flex flex-col ${colColors[st]} rounded-[2.5rem] p-4 border`}>
+                                            <div className="flex justify-between items-center mb-5 px-3 italic font-black text-slate-500 text-[10px] uppercase tracking-[0.2em]">
+                                                <span>{colTitles[st]}</span>
+                                                <span className="bg-white rounded-full px-2 py-0.5 text-slate-400">{colTasks.length}</span>
+                                            </div>
+                                            <div className="space-y-3 overflow-y-auto pr-1 flex-1">
+                                                {colTasks.map(task => {
+                                                    const badge = getDueBadge(task.dueDate);
+                                                    return (
+                                                        <div key={task.id} onClick={() => setViewingTask(task)} className={`p-5 rounded-2xl shadow-sm ${getTaskCardClass(task)} cursor-pointer`}>
+                                                            <div className="flex items-center gap-1 mb-2 flex-wrap">
+                                                                <span className={`text-[8px] font-black px-2 py-0.5 rounded border ${getPriorityBadgeStyle(task.priority)}`}>{getPriorityLabel(task.priority)}</span>
+                                                                {badge && <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${badge.cls}`}>{badge.dot}</span>}
+                                                            </div>
+                                                            <h4 className="font-bold text-sm leading-snug line-clamp-2 text-slate-800 break-words">{task.title}</h4>
+                                                            <div className="mt-3 flex justify-between items-center pt-3 border-t border-slate-100 text-[9px] font-black text-slate-300 italic">
+                                                                <span className="truncate mr-2">{task.assignees?.join(', ')}</span>
+                                                                <span className="shrink-0">{task.dueDate ? task.dueDate.split('-').slice(1).join('/') : ''}</span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
 
@@ -578,25 +840,137 @@
                                 <div className="flex justify-between items-center mb-6 px-2">
                                     <h3 className="text-lg font-black italic">{calDate.toLocaleString('th-TH', { month: 'long', year: 'numeric' })}</h3>
                                     <div className="flex gap-1">
-                                        <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1))} className="p-2.5 bg-slate-50 rounded-xl text-[10px] font-black active:scale-90 transition-all">Prev</button>
-                                        <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1))} className="p-2.5 bg-slate-50 rounded-xl text-[10px] font-black active:scale-90 transition-all">Next</button>
+                                        <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1))} className="p-2.5 bg-slate-50 rounded-xl text-[10px] font-black active:scale-90 transition-all shrink-0">Prev</button>
+                                        <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1))} className="p-2.5 bg-slate-50 rounded-xl text-[10px] font-black active:scale-90 transition-all shrink-0">Next</button>
                                     </div>
                                 </div>
-                                <div className="calendar-grid">
+                                <div className="flex gap-2 mb-4 flex-wrap px-2">
+                                    <span className="text-[8px] font-black bg-red-100 text-red-500 px-2 py-1 rounded-md">🔥 วันนี้/เลยกำหนด</span>
+                                    <span className="text-[8px] font-black bg-amber-100 text-amber-600 px-2 py-1 rounded-md">⚡ ใกล้กำหนด</span>
+                                    <span className="text-[8px] font-black bg-indigo-100 text-indigo-500 px-2 py-1 rounded-md">📋 มีงาน</span>
+                                </div>
+                                <div className="calendar-grid mb-6">
                                     {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map(d => (<div key={d} className="text-center font-black text-slate-300 text-[9px] py-2 uppercase tracking-[0.2em]">{d}</div>))}
                                     {Array.from({ length: new Date(calDate.getFullYear(), calDate.getMonth(), 1).getDay() }).map((_, i) => <div key={`e-${i}`} className="h-12" />)}
                                     {Array.from({ length: new Date(calDate.getFullYear(), calDate.getMonth() + 1, 0).getDate() }).map((_, i) => {
                                         const d = i + 1;
                                         const dateStr = `${calDate.getFullYear()}-${(calDate.getMonth()+1).toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
-                                        const dayTasks = tasks.filter(x => x.dueDate === dateStr);
+                                        const dayTasks = tasks.filter(x => x.dueDate === dateStr && x.status !== 'done');
                                         const isToday = new Date().toISOString().split('T')[0] === dateStr;
+                                        const hasOverdue = dayTasks.some(t => getUrgencyScore(t.dueDate) === 0);
+                                        const hasUrgent = !hasOverdue && dayTasks.some(t => getUrgencyScore(t.dueDate) <= 1);
+                                        const hasSoon = !hasUrgent && dayTasks.some(t => getUrgencyScore(t.dueDate) === 2);
+                                        
+                                        const isSelected = dateStr === selectedDate;
+
+                                        let cellCls = 'bg-slate-50 text-slate-500';
+                                        if (isToday) cellCls = 'bg-indigo-600 text-white font-black shadow-lg shadow-indigo-100';
+                                        else if (hasOverdue) cellCls = 'bg-purple-100 text-purple-700 font-black border border-purple-200';
+                                        else if (hasUrgent) cellCls = 'bg-red-100 text-red-600 font-black border border-red-200';
+                                        else if (hasSoon) cellCls = 'bg-amber-50 text-amber-700 font-bold border border-amber-200';
+                                        else if (dayTasks.length > 0) cellCls = 'bg-indigo-50 text-indigo-600 font-bold border border-indigo-100';
+
+                                        if (isSelected) {
+                                            cellCls += ' ring-4 ring-indigo-300 border-indigo-500 z-10';
+                                        }
+
                                         return (
-                                            <div key={d} onClick={() => dayTasks.length > 0 && setViewingTask(dayTasks[0])} className={`h-12 md:h-16 rounded-xl flex flex-col items-center justify-center border border-transparent transition-all ${isToday ? 'bg-indigo-600 text-white font-black shadow-lg shadow-indigo-100' : 'bg-slate-50 text-slate-500 active:bg-indigo-50 cursor-pointer'}`}>
-                                                <span className="text-xs font-bold">{d}</span>
-                                                <div className="flex gap-0.5 mt-0.5">{dayTasks.slice(0, 3).map(tk => (<div key={tk.id} className={`w-1 h-1 rounded-full ${isToday ? 'bg-white' : 'bg-indigo-400'}`}></div>))}</div>
+                                            <div key={d} onClick={() => setSelectedDate(dateStr)} className={`h-14 md:h-16 rounded-xl flex flex-col items-center justify-center border-2 border-transparent transition-all cursor-pointer active:scale-95 ${cellCls}`}>
+                                                <span className="text-xs font-bold leading-none">{d}</span>
+                                                {dayTasks.length > 0 && (
+                                                    <div className="flex gap-0.5 mt-1">
+                                                        {dayTasks.slice(0, 3).map(tk => (
+                                                            <div key={tk.id} className={`w-1.5 h-1.5 rounded-full ${isToday ? 'bg-white' : tk.priority === 'high' ? 'bg-red-500' : tk.priority === 'low' ? 'bg-emerald-500' : 'bg-amber-400'}`}></div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {dayTasks.length > 3 && <span className={`text-[7px] font-black ${isToday ? 'text-white/70' : 'text-slate-400'}`}>+</span>}
                                             </div>
                                         );
                                     })}
+                                </div>
+                                
+                                <div className="border-t pt-5">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <h4 className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
+                                            📅 ตารางงานวันที่ {selectedDate.split('-').reverse().join('/')}
+                                        </h4>
+                                        <button onClick={() => { setEditingTask(null); setSelectedAssignees([profile?.name]); setDefaultTaskDate(selectedDate); setIsTaskModalOpen(true); }} className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg active:scale-95 shadow-sm border border-indigo-100 flex items-center gap-1 shrink-0">
+                                            + เพิ่มงาน
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2 max-h-60 overflow-y-auto no-scrollbar mb-8">
+                                        {sortByPriority(tasks.filter(t => t.dueDate === selectedDate && t.status !== 'done')).map(t => {
+                                            const badge = getDueBadge(t.dueDate);
+                                            return (
+                                                <div key={t.id} onClick={() => setViewingTask(t)} className={`p-3 rounded-xl flex justify-between items-center cursor-pointer ${getTaskCardClass(t)}`}>
+                                                    <div className="flex-1 min-w-0 mr-2">
+                                                        <p className="font-bold text-xs truncate">{t.title}</p>
+                                                        <p className="text-[9px] text-slate-400 mt-0.5 truncate">{t.dueDate} • {t.assignees?.join(', ')}</p>
+                                                    </div>
+                                                    {badge && <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${badge.cls} shrink-0`}>{badge.dot} {badge.label}</span>}
+                                                </div>
+                                            );
+                                        })}
+                                        {tasks.filter(t => t.dueDate === selectedDate && t.status !== 'done').length === 0 && <p className="text-center py-4 text-slate-300 font-bold italic text-sm bg-slate-50 rounded-xl">ไม่มีงานในวันนี้ สามารถพักผ่อนได้เลย ☕</p>}
+                                    </div>
+
+                                    {/* --- Daily Goal & Reflection --- */}
+                                    <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-200">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h4 className="text-sm font-black text-slate-800 flex items-center gap-2">🎯 แผนงานและการสะท้อนตัวเอง <span className="text-[9px] bg-slate-200 text-slate-500 px-2 py-0.5 rounded-md uppercase tracking-widest shrink-0">Personal</span></h4>
+                                            <button onClick={saveDailyLog} className="text-[10px] font-black bg-slate-800 text-white px-4 py-2 rounded-xl active:scale-95 shadow-sm flex items-center gap-1 shrink-0">
+                                                {isSavingLog ? 'Saving...' : 'บันทึกข้อมูล'} <Icon name="save" size={12}/>
+                                            </button>
+                                        </div>
+                                        
+                                        <div className="space-y-5">
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic block mb-1">เป้าหมายหลักของวันนี้ (Today's Goal)</label>
+                                                <input value={dailyLog.goal} onChange={e => setDailyLog({...dailyLog, goal: e.target.value})} placeholder="วันนี้ตั้งใจจะทำอะไรให้สำเร็จ..." className="w-full min-w-0 p-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-indigo-100" />
+                                            </div>
+
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic block mb-2">เช็คพฤติกรรม (Behavior Check)</label>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {behaviorOptions.map(bh => {
+                                                        const isChecked = dailyLog.behaviors?.includes(bh);
+                                                        return (
+                                                            <button key={bh} onClick={() => {
+                                                                const newBh = isChecked ? dailyLog.behaviors.filter(b => b !== bh) : [...(dailyLog.behaviors||[]), bh];
+                                                                setDailyLog({...dailyLog, behaviors: newBh});
+                                                            }} className={`px-3 py-1.5 rounded-full text-[10px] font-black transition-all flex items-center gap-1 border ${isChecked ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-100'}`}>
+                                                                <div className={`w-3 h-3 rounded-full border flex items-center justify-center shrink-0 ${isChecked ? 'border-white bg-indigo-500' : 'border-slate-300'}`}>
+                                                                    {isChecked && <Icon name="check" size={8} />}
+                                                                </div>
+                                                                {bh}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic block mb-2">วิเคราะห์ปัญหา/สถานการณ์ (Situation Analysis)</label>
+                                                <div className="space-y-2">
+                                                    {dailyLog.situations.map((sitRow, idx) => (
+                                                        <div key={idx} className="flex flex-col md:flex-row gap-2 bg-white p-2 rounded-xl border border-slate-200">
+                                                            <input value={sitRow.sit} onChange={e => {
+                                                                const newSits = [...dailyLog.situations]; newSits[idx].sit = e.target.value; setDailyLog({...dailyLog, situations: newSits});
+                                                            }} placeholder="ปัญหา/สถานการณ์" className="flex-1 min-w-0 p-2 bg-slate-50 rounded-lg text-xs font-bold outline-none" />
+                                                            <input value={sitRow.how} onChange={e => {
+                                                                const newSits = [...dailyLog.situations]; newSits[idx].how = e.target.value; setDailyLog({...dailyLog, situations: newSits});
+                                                            }} placeholder="วิธีแก้ไข (HOW)" className="flex-1 min-w-0 p-2 bg-slate-50 rounded-lg text-xs font-bold outline-none" />
+                                                            <input value={sitRow.who} onChange={e => {
+                                                                const newSits = [...dailyLog.situations]; newSits[idx].who = e.target.value; setDailyLog({...dailyLog, situations: newSits});
+                                                            }} placeholder="ใครช่วยได้ (WHO)" className="w-full md:w-1/4 min-w-0 p-2 bg-slate-50 rounded-lg text-xs font-bold outline-none text-center" />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {/* --- END Daily Goal & Reflection --- */}
                                 </div>
                             </div>
                         )}
@@ -611,6 +985,7 @@
                                     </div>
                                     <p className="mt-8 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Team Success Rate</p>
                                 </div>
+                                
                                 <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl"></div>
                                     <h3 className="text-sm font-black mb-8 tracking-tight text-indigo-400 uppercase italic">Member Workload Balance</h3>
@@ -623,6 +998,39 @@
                                         ))}
                                     </div>
                                 </div>
+
+                                {/* --- Monthly Planner & Summary --- */}
+                                <div className="bg-white p-6 rounded-[2.5rem] border shadow-sm">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">📝 สรุปแผนและเป้าหมาย <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md uppercase tracking-widest">เดือน {calDate.toLocaleString('th-TH', { month: 'long', year: 'numeric' })}</span></h3>
+                                        <button onClick={saveMonthlyLog} className="text-[10px] font-black bg-indigo-600 text-white px-4 py-2 rounded-xl active:scale-95 shadow-sm flex items-center gap-1 shrink-0">
+                                            {isSavingLog ? 'Saving...' : 'บันทึกข้อมูล'} <Icon name="save" size={12}/>
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="bg-pastel-green p-4 rounded-2xl flex flex-col">
+                                            <label className="text-[11px] font-black text-green-800 mb-2">ทำอะไรสำเร็จตามเป้าหมายแล้วบ้าง?</label>
+                                            <textarea value={monthlyLog.achievements} onChange={e => setMonthlyLog({...monthlyLog, achievements: e.target.value})} className="w-full min-w-0 bg-transparent border-none outline-none resize-none h-24 text-sm font-bold text-green-900 placeholder-green-700/50 break-words" placeholder="พิมพ์บันทึกความสำเร็จ..."></textarea>
+                                        </div>
+
+                                        <div className="bg-pastel-brown p-4 rounded-2xl flex flex-col">
+                                            <label className="text-[11px] font-black text-stone-800 mb-2">สรุปเดือนนี้</label>
+                                            <textarea value={monthlyLog.summary} onChange={e => setMonthlyLog({...monthlyLog, summary: e.target.value})} className="w-full min-w-0 bg-transparent border-none outline-none resize-none h-24 text-sm font-bold text-stone-900 placeholder-stone-700/50 break-words" placeholder="พิมพ์ข้อความสรุป..."></textarea>
+                                        </div>
+
+                                        <div className="bg-pastel-blue p-4 rounded-2xl flex flex-col">
+                                            <label className="text-[11px] font-black text-cyan-800 mb-2">สิ่งที่ทำได้ดี</label>
+                                            <textarea value={monthlyLog.wellDone} onChange={e => setMonthlyLog({...monthlyLog, wellDone: e.target.value})} className="w-full min-w-0 bg-transparent border-none outline-none resize-none h-24 text-sm font-bold text-cyan-900 placeholder-cyan-700/50 break-words" placeholder="พิมพ์สิ่งที่ทำได้ดี..."></textarea>
+                                        </div>
+
+                                        <div className="bg-pastel-pink p-4 rounded-2xl flex flex-col">
+                                            <label className="text-[11px] font-black text-pink-800 mb-2">สิ่งที่ควรปรับปรุง</label>
+                                            <textarea value={monthlyLog.improve} onChange={e => setMonthlyLog({...monthlyLog, improve: e.target.value})} className="w-full min-w-0 bg-transparent border-none outline-none resize-none h-24 text-sm font-bold text-pink-900 placeholder-pink-700/50 break-words" placeholder="พิมพ์สิ่งที่ต้องแก้ไข..."></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* --- END Monthly Planner & Summary --- */}
                             </div>
                         )}
 
@@ -631,11 +1039,11 @@
                                 <div className="px-4 flex justify-between items-end italic"><h3 className="text-xl font-black text-slate-800">Team Directory</h3><div className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">#{activeTeamId} • {members.length} Active</div></div>
                                 {members.map(m => (
                                     <div key={m.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-50 flex justify-between items-center group animate-in">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center font-black text-lg uppercase shadow-inner">{(m.name || "U").substring(0,2)}</div>
-                                            <div><h4 className="font-black text-sm text-slate-800 leading-none">{m.name}</h4><p className="text-[10px] font-bold text-slate-300 mt-2 uppercase tracking-widest italic">{m.id === user.uid ? 'คุณ (Admin)' : 'Member'}</p></div>
+                                        <div className="flex items-center gap-4 min-w-0">
+                                            <div className="w-12 h-12 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center font-black text-lg uppercase shadow-inner shrink-0">{(m.name || "U").substring(0,2)}</div>
+                                            <div className="min-w-0"><h4 className="font-black text-sm text-slate-800 leading-none truncate">{m.name}</h4><p className="text-[10px] font-bold text-slate-300 mt-2 uppercase tracking-widest italic">{m.id === user.uid ? 'คุณ (Admin)' : 'Member'}</p></div>
                                         </div>
-                                        <button onClick={() => removeMember(m)} className="p-2 text-slate-300 hover:text-red-500 active:scale-90 transition-all"><Icon name={m.id === user.uid ? "logout" : "trash"} size={16} /></button>
+                                        <button onClick={() => removeMember(m)} className="p-2 text-slate-300 hover:text-red-500 active:scale-90 transition-all shrink-0"><Icon name={m.id === user.uid ? "logout" : "trash"} size={16} /></button>
                                     </div>
                                 ))}
                             </div>
@@ -652,13 +1060,20 @@
                                     <button onClick={() => setNotifTab('group')} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${notifTab === 'group' ? 'bg-white text-amber-500 shadow-sm' : 'text-slate-400'}`}>Group</button>
                                 </div>
                                 <div className="overflow-y-auto no-scrollbar space-y-2 flex-1">
-                                    {(notifTab === 'personal' ? myPersonal : groupShared).filter(t => t.status !== 'done').map(t => (
-                                        <div key={t.id} onClick={() => { setIsNotifOpen(false); setViewingTask(t); }} className="p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all">
-                                            <p className="font-bold text-sm text-slate-800">{t.title}</p>
-                                            <div className="text-[9px] font-black uppercase mt-2 text-slate-400 italic">Deadline: {t.dueDate}</div>
-                                        </div>
-                                    ))}
-                                    {(notifTab === 'personal' ? myPersonal : groupShared).filter(t => t.status !== 'done').length === 0 && <p className="text-center py-20 text-slate-300 font-bold italic opacity-30 uppercase tracking-widest">No Pending Tasks</p>}
+                                    {(notifTab === 'personal' ? myPersonal : groupShared).map(t => {
+                                        const badge = getDueBadge(t.dueDate);
+                                        return (
+                                            <div key={t.id} onClick={() => { setIsNotifOpen(false); setViewingTask(t); }} className={`p-4 rounded-2xl cursor-pointer border transition-all flex flex-col ${getTaskCardClass(t)}`}>
+                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                    <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border ${getPriorityBadgeStyle(t.priority)}`}>{getPriorityLabel(t.priority)}</span>
+                                                    {badge && <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${badge.cls}`}>{badge.dot} {badge.label}</span>}
+                                                </div>
+                                                <p className="font-bold text-sm text-slate-800 break-words">{t.title}</p>
+                                                <div className="text-[9px] font-black uppercase mt-1 text-slate-400 italic">Deadline: {t.dueDate}</div>
+                                            </div>
+                                        );
+                                    })}
+                                    {(notifTab === 'personal' ? myPersonal : groupShared).length === 0 && <p className="text-center py-20 text-slate-300 font-bold italic opacity-30 uppercase tracking-widest">No Pending Tasks</p>}
                                 </div>
                             </div>
                         </div>
@@ -675,40 +1090,40 @@
                                     <form className="p-6 md:p-8 space-y-5" onSubmit={saveTask}>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-black text-slate-400 uppercase italic ml-1 tracking-widest">Task Heading</label>
-                                            <input required name="title" defaultValue={editingTask?.title} placeholder="งานที่ต้องทำ..." className="w-full p-4 bg-slate-50 border-none rounded-xl font-bold text-sm focus:ring-4 focus:ring-indigo-100 transition-all outline-none" />
+                                            <input required name="title" defaultValue={editingTask?.title} placeholder="งานที่ต้องทำ..." className="w-full min-w-0 p-4 bg-slate-50 border-none rounded-xl font-bold text-sm focus:ring-4 focus:ring-indigo-100 transition-all outline-none" />
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-black text-slate-400 uppercase italic ml-1 tracking-widest">Description</label>
-                                            <textarea name="description" defaultValue={editingTask?.description} placeholder="รายละเอียดหรือหมายเหตุเพิ่มเติม..." className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-sm h-24 outline-none focus:ring-4 focus:ring-indigo-100"></textarea>
+                                            <textarea name="description" defaultValue={editingTask?.description} placeholder="รายละเอียดหรือหมายเหตุเพิ่มเติม..." className="w-full min-w-0 p-4 bg-slate-50 border-none rounded-2xl font-bold text-sm h-24 outline-none focus:ring-4 focus:ring-indigo-100 break-words"></textarea>
                                         </div>
                                         <div className="space-y-2 bg-slate-50 p-4 rounded-2xl border">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Responsibility (Multi)</label>
                                             <div className="flex flex-wrap gap-2 pt-1">
-                                                <button type="button" onClick={() => setSelectedAssignees(['ทุกคน'])} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${selectedAssignees.includes('ทุกคน') ? 'bg-amber-100 text-amber-600 border-amber-200 shadow-sm' : 'bg-white text-slate-500'}`}>ทุกคน</button>
+                                                <button type="button" onClick={() => setSelectedAssignees(['ทุกคน'])} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border shrink-0 ${selectedAssignees.includes('ทุกคน') ? 'bg-amber-100 text-amber-600 border-amber-200 shadow-sm' : 'bg-white text-slate-500'}`}>ทุกคน</button>
                                                 {members.map(m => (
                                                     <button key={m.id} type="button" onClick={() => {
                                                         if (selectedAssignees.includes('ทุกคน')) setSelectedAssignees([m.name]);
                                                         else setSelectedAssignees(prev => prev.includes(m.name) ? prev.filter(a => a !== m.name) : [...prev, m.name]);
-                                                    }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${selectedAssignees.includes(m.name) && !selectedAssignees.includes('ทุกคน') ? 'bg-indigo-100 text-indigo-600 border-indigo-200' : 'bg-white text-slate-500'}`}>{selectedAssignees.includes(m.name) && !selectedAssignees.includes('ทุกคน') ? '✓ ' : ''}{m.name}</button>
+                                                    }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border shrink-0 ${selectedAssignees.includes(m.name) && !selectedAssignees.includes('ทุกคน') ? 'bg-indigo-100 text-indigo-600 border-indigo-200' : 'bg-white text-slate-500'}`}>{selectedAssignees.includes(m.name) && !selectedAssignees.includes('ทุกคน') ? '✓ ' : ''}{m.name}</button>
                                                 ))}
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3 pt-2">
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-black text-slate-400 uppercase italic">Due Date</label>
-                                                <input name="dueDate" type="date" required defaultValue={editingTask?.dueDate || new Date().toISOString().split('T')[0]} className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-xs outline-none" />
+                                                <input name="dueDate" type="date" required defaultValue={editingTask?.dueDate || defaultTaskDate} className="w-full min-w-0 p-4 bg-slate-50 border-none rounded-2xl font-bold text-xs outline-none" />
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-black text-slate-400 uppercase italic">Priority</label>
-                                                <select name="priority" defaultValue={editingTask?.priority || 'medium'} className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-xs outline-none">
-                                                    <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+                                                <select name="priority" defaultValue={editingTask?.priority || 'medium'} className="w-full min-w-0 p-4 bg-slate-50 border-none rounded-2xl font-bold text-xs outline-none">
+                                                    <option value="low">🟢 Low</option><option value="medium">🟡 Medium</option><option value="high">🔴 High</option>
                                                 </select>
                                             </div>
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-black text-slate-400 uppercase italic">Current Status</label>
-                                            <select name="status" defaultValue={editingTask?.status || 'todo'} className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-xs outline-none">
-                                                <option value="todo">To Do</option><option value="in-progress">Doing</option><option value="done">Done</option>
+                                            <select name="status" defaultValue={editingTask?.status || 'todo'} className="w-full min-w-0 p-4 bg-slate-50 border-none rounded-2xl font-bold text-xs outline-none">
+                                                <option value="todo">📋 To Do</option><option value="in-progress">⚡ Doing</option><option value="done">✅ Done</option>
                                             </select>
                                         </div>
                                         <button disabled={selectedAssignees.length === 0} className={`w-full p-5 rounded-[2rem] font-black shadow-xl mt-6 uppercase text-xs tracking-[0.2em] transition-all ${selectedAssignees.length === 0 ? 'bg-slate-100 text-slate-300' : 'btn-primary active:scale-95 shadow-indigo-100'}`}>บันทึกภารกิจ</button>
@@ -720,19 +1135,46 @@
 
                     {viewingTask && (
                         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-6 bg-slate-900/60 backdrop-blur-sm">
-                            <div className="bg-white w-full max-w-sm rounded-t-[3rem] md:rounded-[3rem] shadow-2xl p-10 relative animate-in max-h-[85vh] overflow-y-auto no-scrollbar flex flex-col">
-                                <button onClick={() => setViewingTask(null)} className="absolute top-10 right-10 p-2 text-slate-300 active:scale-90"><Icon name="x" size={24}/></button>
-                                <div className={`px-4 py-1 rounded-lg text-[9px] font-black uppercase mb-6 inline-block border italic self-start ${(viewingTask.priority || 'medium') === 'high' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-400'}`}>{(viewingTask.priority || 'medium').toUpperCase()} PRIORITY</div>
-                                <h3 className="text-3xl font-black text-slate-800 mb-6 leading-tight tracking-tight italic">{viewingTask.title}</h3>
-                                <p className="text-sm font-bold text-slate-500 mb-8 whitespace-pre-wrap leading-relaxed">{viewingTask.description || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
-                                <div className="space-y-4 mb-10 text-left">
-                                    <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100"><div className="w-12 h-12 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-black text-lg uppercase shadow-lg shrink-0">{viewingTask.assignees?.[0]?.substring(0,2) || "?"}</div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Assignees</p><p className="font-bold text-slate-800 text-sm mt-1">{viewingTask.assignees?.join(', ')}</p></div></div>
-                                    <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100"><div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-indigo-600 shadow-sm shrink-0"><Icon name="calendar" size={24}/></div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Due Date</p><p className="font-bold text-slate-800 text-lg mt-1">{viewingTask.dueDate}</p></div></div>
-                                </div>
-                                <div className="flex gap-3 mt-auto pt-4 border-t">
-                                    <button onClick={() => deleteTask(viewingTask)} className="p-5 bg-red-50 text-red-500 rounded-2xl active:scale-95 shadow-inner border border-red-100"><Icon name="trash" size={24}/></button>
-                                    <button onClick={() => { setEditingTask(viewingTask); setSelectedAssignees(viewingTask.assignees); setViewingTask(null); setIsTaskModalOpen(true); }} className="flex-1 p-5 bg-slate-900 text-white rounded-[2.5rem] font-black shadow-2xl active:scale-95 uppercase text-xs tracking-widest italic">แก้ไขภารกิจ</button>
-                                </div>
+                            <div className="bg-white w-full max-w-sm rounded-t-[3rem] md:rounded-[3rem] shadow-2xl p-8 md:p-10 relative animate-in max-h-[85vh] overflow-y-auto no-scrollbar flex flex-col">
+                                <button onClick={() => setViewingTask(null)} className="absolute top-6 right-6 p-2 text-slate-500 bg-white/80 shadow-sm rounded-full backdrop-blur-md active:scale-90 z-50 hover:bg-slate-100 transition-all"><Icon name="x" size={20}/></button>
+                                {(() => {
+                                    const badge = getDueBadge(viewingTask.dueDate);
+                                    const urgency = getUrgencyScore(viewingTask.dueDate);
+                                    const urgBg = urgency === 0 ? 'from-purple-50 to-white border-purple-100' : urgency === 1 ? 'from-red-50 to-white border-red-100' : 'from-slate-50 to-white border-slate-100';
+                                    return (
+                                        <>
+                                            <div className={`absolute inset-0 rounded-t-[3rem] md:rounded-[3rem] bg-gradient-to-b ${urgBg} opacity-50 pointer-events-none`}></div>
+                                            <div className="relative z-10 pt-2">
+                                                <div className="flex items-center gap-2 mb-6 flex-wrap">
+                                                    <span className={`px-3 py-1 rounded-lg text-[9px] font-black border ${getPriorityBadgeStyle(viewingTask.priority)}`}>{getPriorityLabel(viewingTask.priority)} PRIORITY</span>
+                                                    {badge && <span className={`px-3 py-1 rounded-lg text-[9px] font-black ${badge.cls}`}>{badge.dot} {badge.label}</span>}
+                                                    <span className={`px-3 py-1 rounded-lg text-[9px] font-black ${viewingTask.status === 'done' ? 'badge-done' : viewingTask.status === 'in-progress' ? 'badge-inprogress' : 'badge-todo'}`}>{viewingTask.status === 'done' ? '✅ Done' : viewingTask.status === 'in-progress' ? '⚡ In Progress' : '📋 To Do'}</span>
+                                                </div>
+                                                <h3 className="text-3xl font-black text-slate-800 mb-6 leading-tight tracking-tight italic break-words">{viewingTask.title}</h3>
+                                                <p className="text-sm font-bold text-slate-500 mb-8 whitespace-pre-wrap break-words leading-relaxed">{viewingTask.description || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
+                                                
+                                                <div className="space-y-4 mb-10 text-left">
+                                                    <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100 min-w-0"><div className="w-12 h-12 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-black text-lg uppercase shadow-lg shrink-0">{viewingTask.assignees?.[0]?.substring(0,2) || "?"}</div><div className="min-w-0"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Assignees</p><p className="font-bold text-slate-800 text-sm mt-1 break-words">{viewingTask.assignees?.join(', ')}</p></div></div>
+                                                    <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100"><div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-indigo-600 shadow-sm shrink-0"><Icon name="calendar" size={24}/></div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Due Date</p><p className="font-bold text-slate-800 text-lg mt-1">{viewingTask.dueDate}</p></div></div>
+                                                    
+                                                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 mt-4">
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">เปลี่ยนสถานะด่วน</p>
+                                                        <div className="flex gap-2">
+                                                            <button onClick={(e) => { e.stopPropagation(); quickUpdateStatus(viewingTask, 'todo'); }} className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all shadow-sm ${viewingTask.status === 'todo' ? 'bg-indigo-600 text-white ring-2 ring-indigo-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📋 To Do</button>
+                                                            <button onClick={(e) => { e.stopPropagation(); quickUpdateStatus(viewingTask, 'in-progress'); }} className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all shadow-sm ${viewingTask.status === 'in-progress' ? 'bg-amber-500 text-white ring-2 ring-amber-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>⚡ Doing</button>
+                                                            <button onClick={(e) => { e.stopPropagation(); quickUpdateStatus(viewingTask, 'done'); }} className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all shadow-sm ${viewingTask.status === 'done' ? 'bg-emerald-500 text-white ring-2 ring-emerald-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>✅ Done</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex gap-3 mt-auto pt-4 border-t border-slate-100">
+                                                    <button onClick={() => deleteTask(viewingTask)} className="p-5 bg-red-50 text-red-500 rounded-2xl active:scale-95 shadow-inner border border-red-100 shrink-0"><Icon name="trash" size={24}/></button>
+                                                    <button onClick={() => { setEditingTask(viewingTask); setSelectedAssignees(viewingTask.assignees); setViewingTask(null); setIsTaskModalOpen(true); }} className="flex-1 p-5 bg-slate-900 text-white rounded-[2.5rem] font-black shadow-2xl active:scale-95 uppercase text-xs tracking-widest italic min-w-0">แก้ไขรายละเอียด</button>
+                                                </div>
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
                         </div>
                     )}
