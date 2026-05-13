@@ -661,14 +661,14 @@
                         <button onClick={() => setScreen('hub')} className="mt-auto p-4 bg-slate-900 rounded-xl text-white text-[10px] font-black uppercase text-center tracking-[0.2em] shadow-lg active:scale-95 transition-all">สลับทีมงาน</button>
                     </aside>
 
-                    {/* --- FIXED: Added 'calendar' to Mobile Navigation --- */}
+                    {/* --- FIXED: Added 'analytics' to Mobile Navigation --- */}
                     <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-md border-t flex justify-around p-2 pb-safe z-40 shadow-xl">
-                        {['dashboard', 'mytasks', 'board', 'calendar', 'members'].map(m => (
-                            <button key={m} onClick={() => setView(m)} className={`p-3 rounded-xl transition-all ${view === m ? 'text-indigo-600 bg-indigo-50' : 'text-slate-300'}`}>
+                        {['dashboard', 'mytasks', 'board', 'calendar', 'analytics', 'members'].map(m => (
+                            <button key={m} onClick={() => setView(m)} className={`p-2 rounded-xl transition-all ${view === m ? 'text-indigo-600 bg-indigo-50' : 'text-slate-300'}`}>
                                 <Icon name={m} size={22}/>
                             </button>
                         ))}
-                        <button onClick={() => setScreen('hub')} className="p-3 text-slate-300 active:scale-90 transition-all"><Icon name="layers" size={22}/></button>
+                        <button onClick={() => setScreen('hub')} className="p-2 text-slate-300 active:scale-90 transition-all"><Icon name="layers" size={22}/></button>
                     </nav>
 
                     <main className="p-4 md:p-12 max-w-4xl mx-auto space-y-6 pb-12">
