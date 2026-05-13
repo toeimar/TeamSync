@@ -125,6 +125,18 @@
         // --- Priority helpers ---
         const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
         const sortByPriority = (tasks) => [...tasks].sort((a, b) => {
+            // 1. เรียงตามวันเวลาที่กำหนดส่ง (Exact Due Date) - ใกล้กำหนดสุดหรือเกินกำหนดแล้วขึ้นก่อน
+            if (a.dueDate && b.dueDate) {
+                const dateA = new Date(a.dueDate).getTime();
+                const dateB = new Date(b.dueDate).getTime();
+                if (dateA !== dateB) return dateA - dateB;
+            } else if (a.dueDate && !b.dueDate) {
+                return -1; // ถ้า a มีกำหนดส่ง b ไม่มี ให้ a ขึ้นก่อน
+            } else if (!a.dueDate && b.dueDate) {
+                return 1;  // ถ้า b มีกำหนดส่ง a ไม่มี ให้ b ขึ้นก่อน
+            }
+
+            // 2. ถ้าวันที่กำหนดส่งเท่ากัน (หรือไม่มีทั้งคู่) ให้เรียงตามลำดับความสำคัญ (Priority) & คงโค้ดเดิมไว้
             const urgA = getUrgencyScore(a.dueDate);
             const urgB = getUrgencyScore(b.dueDate);
             if (urgA !== urgB) return urgA - urgB;
@@ -448,6 +460,30 @@
                 }
             };
 
+            // ฟังก์ชันสำหรับลบ/ออกจากทีมจากหน้า Hub
+            const deleteTeamFromHub = async (tid, e) => {
+                e.stopPropagation(); // ป้องกันไม่ให้คลิกแล้วเข้าไปในทีม
+                if (confirm(`ยืนยันการลบ/ออกจากทีม #${tid} ใช่หรือไม่?\n(ทีมนี้จะถูกนำออกจากรายการของคุณ)`)) {
+                    try {
+                        const updated = profile.teams.filter(t => t !== tid);
+                        await db.collection('users_profile_v16').doc(user.uid).update({ teams: updated });
+                        setProfile({ ...profile, teams: updated });
+                        
+                        // ถ้าลบทีมที่กำลังใช้งานอยู่ ให้เคลียร์ localStorage
+                        if (activeTeamId === tid) {
+                            safeSetLocal('ts_v16_active', '');
+                            setActiveTeamId(null);
+                        }
+
+                        // ลบชื่อตัวเองออกจาก members ในทีมน้้น
+                        await db.collection(`teams_v16/${tid}/members`).doc(user.uid).delete();
+                        notifyTG("🚪 สมาชิกออกจากทีม", `👤 <b>${profile.name}</b> ได้ลบ/ออกจากทีม <b>#${tid}</b>`);
+                    } catch (err) {
+                        console.error("Error deleting/leaving team:", err);
+                    }
+                }
+            };
+
             const saveTask = async (e) => {
                 e.preventDefault();
                 const fd = new FormData(e.target);
@@ -636,9 +672,18 @@
                     <div className="space-y-3">
                         <h2 className="text-[10px] font-black px-4 text-slate-400 uppercase tracking-widest italic">ทีมที่สังกัด ({profile?.teams?.length || 0})</h2>
                         {profile?.teams?.map(tid => (
-                            <div key={tid} onClick={() => { setActiveTeamId(tid); safeSetLocal('ts_v16_active', tid); setScreen('workspace'); setView('dashboard'); }} className="bg-white p-5 rounded-2xl shadow-sm border border-transparent hover:border-indigo-100 active:scale-95 transition-all flex justify-between items-center group cursor-pointer">
-                                <div className="flex items-center gap-4"><div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-black group-hover:bg-indigo-600 group-hover:text-white transition-all">#</div><p className="font-black text-lg">{tid}</p></div>
-                                <Icon name="chevronRight" className="text-slate-200" />
+                            <div key={tid} onClick={() => { setActiveTeamId(tid); safeSetLocal('ts_v16_active', tid); setScreen('workspace'); setView('dashboard'); }} className="bg-white p-5 rounded-2xl shadow-sm border border-transparent hover:border-indigo-100 active:scale-95 transition-all flex justify-between items-center group cursor-pointer relative overflow-hidden">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-black group-hover:bg-indigo-600 group-hover:text-white transition-all">#</div>
+                                    <p className="font-black text-lg">{tid}</p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    {/* เพิ่มปุ่มลบทีมที่นี่ */}
+                                    <button onClick={(e) => deleteTeamFromHub(tid, e)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all" title="ลบ/ออกจากทีม">
+                                        <Icon name="trash" size={18} />
+                                    </button>
+                                    <Icon name="chevronRight" className="text-slate-200" />
+                                </div>
                             </div>
                         ))}
                     </div>
